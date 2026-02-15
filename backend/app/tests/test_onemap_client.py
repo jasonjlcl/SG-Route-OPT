@@ -1,0 +1,66 @@
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+from app.services.onemap_client import OneMapClient
+from app.utils.settings import get_settings
+
+
+class DummyResponse:
+    def __init__(self, status_code: int, payload: dict):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+
+def test_onemap_client_mock_mode(monkeypatch):
+    monkeypatch.delenv("ONEMAP_EMAIL", raising=False)
+    monkeypatch.delenv("ONEMAP_PASSWORD", raising=False)
+    get_settings.cache_clear()
+
+    client = OneMapClient()
+    assert client.mock_mode
+
+    search = client.search("10 Bayfront Avenue")
+    assert int(search["found"]) >= 1
+
+    route = client.route(1.30, 103.80, 1.31, 103.81)
+    assert route["distance_m"] > 0
+    assert route["duration_s"] > 0
+
+
+def test_onemap_client_refresh_on_401(monkeypatch):
+    monkeypatch.setenv("ONEMAP_EMAIL", "user@example.com")
+    monkeypatch.setenv("ONEMAP_PASSWORD", "secret")
+    get_settings.cache_clear()
+
+    client = OneMapClient()
+
+    tokens = ["expired-token", "fresh-token"]
+    calls = {"auth": 0, "request": 0}
+
+    def fake_get_access_token(force_refresh: bool = False):
+        if force_refresh:
+            calls["auth"] += 1
+            return tokens[1]
+        return tokens[0]
+
+    def fake_request(method, url, params=None, headers=None):
+        calls["request"] += 1
+        if calls["request"] == 1:
+            return DummyResponse(401, {})
+        return DummyResponse(200, {"found": 1, "results": []})
+
+    monkeypatch.setattr(client, "get_access_token", fake_get_access_token)
+    monkeypatch.setattr(client, "http", SimpleNamespace(request=fake_request))
+
+    data = client._request_with_retries("GET", "https://example.com")
+    assert data["found"] == 1
+    assert calls["auth"] == 1
+    assert calls["request"] == 2

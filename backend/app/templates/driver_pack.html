@@ -1,0 +1,289 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{ title }} - Plan {{ plan_id }}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 18mm 14mm 16mm 14mm;
+        @bottom-left {
+          content: "Plan #" counter(page);
+          font-size: 9pt;
+          color: #64748b;
+        }
+        @bottom-right {
+          content: "Page " counter(page) " / " counter(pages);
+          font-size: 9pt;
+          color: #64748b;
+        }
+      }
+
+      body {
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
+        color: #0f172a;
+        font-size: 12pt;
+        line-height: 1.5;
+      }
+
+      h1, h2, h3 {
+        margin: 0;
+      }
+
+      .cover {
+        page-break-after: always;
+      }
+
+      .hero {
+        border: 1px solid #dbe2ea;
+        border-radius: 14px;
+        padding: 14px;
+        background: linear-gradient(180deg, #f4fbf8 0%, #ffffff 100%);
+      }
+
+      .meta-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .meta-box {
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        padding: 9px;
+      }
+
+      .meta-label {
+        font-size: 9.5pt;
+        color: #64748b;
+      }
+
+      .meta-value {
+        font-size: 15pt;
+        font-weight: 700;
+      }
+
+      .map {
+        border: 1px solid #dbe2ea;
+        border-radius: 12px;
+        margin-top: 12px;
+        overflow: hidden;
+      }
+
+      .summary-table,
+      .route-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        font-size: 10pt;
+      }
+
+      .summary-table th,
+      .summary-table td,
+      .route-table th,
+      .route-table td {
+        border: 1px solid #dbe2ea;
+        padding: 6px 7px;
+        vertical-align: top;
+      }
+
+      .summary-table thead,
+      .route-table thead {
+        background: #f8fafc;
+      }
+
+      .section-title {
+        margin-top: 4px;
+        font-size: 16pt;
+        font-weight: 700;
+      }
+
+      .route-section {
+        page-break-before: always;
+      }
+
+      .route-head {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+        border: 1px solid #dbe2ea;
+        border-left: 8px solid var(--route-color);
+        border-radius: 12px;
+        padding: 10px;
+        background: #ffffff;
+      }
+
+      .route-kpis {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .chip {
+        background: #eef2f7;
+        border: 1px solid #dbe2ea;
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-size: 9.5pt;
+      }
+
+      .qr-wrap {
+        text-align: right;
+      }
+
+      .notes {
+        margin-top: 8px;
+        border: 1px dashed #dbe2ea;
+        border-radius: 10px;
+        padding: 8px;
+        font-size: 10pt;
+      }
+
+      .legend {
+        margin-top: 10px;
+        font-size: 9pt;
+        color: #64748b;
+      }
+
+      .muted {
+        color: #64748b;
+      }
+
+      .unserved {
+        margin-top: 14px;
+        border: 1px solid #f7d4af;
+        border-radius: 10px;
+        padding: 10px;
+        background: #fff8ef;
+      }
+
+      .small {
+        font-size: 9pt;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="cover">
+      <div class="hero">
+        <h1>{{ title }}</h1>
+        <p class="muted">Generated {{ generated_at }} • Scope: {{ vehicle_scope }}</p>
+        <div class="meta-grid">
+          <div class="meta-box">
+            <div class="meta-label">Plan / Dataset</div>
+            <div class="meta-value">#{{ plan_id }} / #{{ dataset_id }}</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">Status</div>
+            <div class="meta-value">{{ status }}</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">Depot</div>
+            <div>{{ depot }}</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">Estimated Finish</div>
+            <div class="meta-value">{{ summary.finish_time }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="map">
+        <img src="{{ map_data_uri }}" alt="Route overview map" style="width: 100%; display: block" />
+      </div>
+
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>Vehicles</th>
+            <th>Served Stops</th>
+            <th>Unserved Stops</th>
+            <th>Total Distance</th>
+            <th>Total Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{{ summary.vehicles }}</td>
+            <td>{{ summary.served_stops }}</td>
+            <td>{{ summary.unserved_stops }}</td>
+            <td>{{ summary.distance_km }} km</td>
+            <td>{{ summary.duration_min }} min</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="legend">Legend: numbered circles show stop sequence. Colors represent each vehicle route.</p>
+
+      {% if unserved_stops %}
+      <div class="unserved">
+        <strong>Unserved Stops:</strong>
+        <ul>
+          {% for stop in unserved_stops %}
+          <li>{{ stop.stop_ref }} - {{ stop.address }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </section>
+
+    {% for route in routes %}
+    <section class="route-section" style="--route-color: {{ route.color }}">
+      <div class="route-head">
+        <div>
+          <h2 class="section-title">Vehicle {{ route.vehicle_idx }}</h2>
+          <div class="route-kpis">
+            <span class="chip">Stops: {{ route.stops_count }}</span>
+            <span class="chip">Distance: {{ route.distance_km }} km</span>
+            <span class="chip">Duration: {{ route.duration_min }} min</span>
+            <span class="chip">Window: {{ route.start_time }} - {{ route.end_time }}</span>
+          </div>
+        </div>
+        {% if route.qr_data_uri %}
+        <div class="qr-wrap">
+          <img src="{{ route.qr_data_uri }}" alt="Navigation QR" style="width: 82px; height: 82px; border: 1px solid #dbe2ea" />
+          <p class="small muted">Scan to navigate</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <table class="route-table">
+        <thead>
+          <tr>
+            <th>Seq</th>
+            <th>ETA</th>
+            <th>Time Window</th>
+            <th>Address</th>
+            <th>Service Time</th>
+            <th>Service Window</th>
+            <th>Drive to Next</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in route.rows %}
+          <tr>
+            <td>{{ row.seq }}</td>
+            <td>{{ row.eta }}</td>
+            <td>{{ row.time_window }}</td>
+            <td>{{ row.stop_ref }} - {{ row.address }}</td>
+            <td>{{ row.service_time }}</td>
+            <td>{{ row.service_window }}</td>
+            <td>{{ row.drive_to_next }}</td>
+            <td>{{ row.notes }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="notes">
+        <strong>Route Notes:</strong>
+        <p class="small">Follow planned sequence where possible. If delayed, prioritize narrower time windows first.</p>
+      </div>
+    </section>
+    {% endfor %}
+  </body>
+</html>
+
