@@ -1,0 +1,13 @@
+stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end
+S001,10 Bayfront Avenue,,1,8,09:00,12:00
+S002,1 Raffles Place,,2,10,09:30,13:30
+S003,50 Nanyang Avenue,,1,7,10:00,16:30
+S004,2 Orchard Turn,,1,6,11:00,17:00
+S005,80 Marine Parade Road,,2,9,09:00,18:00
+S006,1 HarbourFront Walk,,1,8,10:30,16:00
+S007,1 Vista Exchange Green,,1,7,09:30,15:30
+S008,1 Woodlands Square,,2,10,11:00,18:00
+S009,3 Temasek Boulevard,,1,6,09:00,14:30
+S010,1 Changi Business Park Crescent,,1,8,10:00,17:30
+S011,18 Marina Gardens Drive,,1,6,09:00,12:30
+S012,21 Jurong Gateway Road,,2,9,11:30,18:00
