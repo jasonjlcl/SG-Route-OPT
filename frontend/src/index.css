@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 210 30% 98%;
+  --foreground: 212 34% 17%;
+  --card: 0 0% 100%;
+  --card-foreground: 212 34% 17%;
+  --muted: 214 25% 94%;
+  --muted-foreground: 215 16% 40%;
+  --border: 214 20% 86%;
+  --input: 214 20% 86%;
+
+  --primary: 149 74% 35%;
+  --primary-foreground: 0 0% 100%;
+
+  --success: 145 63% 42%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 36 92% 46%;
+  --warning-foreground: 0 0% 10%;
+
+  --danger: 5 78% 46%;
+  --danger-foreground: 0 0% 100%;
+
+  --radius-xl: 16px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --shadow-medium: 0 16px 38px rgba(15, 23, 42, 0.14);
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply min-h-screen bg-background font-sans text-foreground antialiased;
+  background-image: radial-gradient(circle at 10% -20%, rgba(14, 165, 116, 0.14), transparent 45%),
+    radial-gradient(circle at 90% -10%, rgba(17, 94, 89, 0.12), transparent 40%);
+}
+
+#root {
+  @apply min-h-screen;
+}
+
+.leaflet-container {
+  @apply h-full w-full;
+}
+
+.route-seq-marker {
+  @apply flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-primary text-xs font-semibold text-primary-foreground shadow-soft;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  body {
+    background: white;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  .driver-print-sheet {
+    font-size: 14pt;
+  }
+}
