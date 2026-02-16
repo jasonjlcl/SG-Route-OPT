@@ -94,10 +94,42 @@ export type JobAccepted = {
 export type JobStatus = {
   job_id: string;
   type: string;
-  status: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED";
+  status: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELED" | "CANCELLED";
   progress: number;
+  progress_pct?: number | null;
+  current_step?: string | null;
   message: string | null;
+  error_code?: string | null;
+  error_detail?: string | null;
+  steps?: Record<string, { status?: string; [key: string]: unknown }> | null;
   result_ref: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+};
+
+export type KpiComparisonRow = {
+  key: string;
+  label: string;
+  higher_is_better: boolean;
+  baseline: number;
+  model?: number;
+  ml?: number;
+  improvement_pct: number | null;
+};
+
+export type MlEvaluationComparison = {
+  generated_at: string;
+  samples: number;
+  model_version: string;
+  baseline_version: string;
+  kpis: KpiComparisonRow[];
+  segments: {
+    segment: string;
+    count: number;
+    baseline_mae_s: number;
+    model_mae_s: number;
+    baseline_mape_pct: number;
+    model_mape_pct: number;
+    mae_improvement_pct: number | null;
+  }[];
 };

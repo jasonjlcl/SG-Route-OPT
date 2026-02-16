@@ -33,6 +33,22 @@ class Settings(BaseSettings):
     ml_retrain_min_rows: int = Field(default=200, alias="ML_RETRAIN_MIN_ROWS")
     ml_canary_seed: int = Field(default=42, alias="ML_CANARY_SEED")
 
+    gcp_project_id: str | None = Field(default=None, alias="GCP_PROJECT_ID")
+    gcp_region: str = Field(default="asia-southeast1", alias="GCP_REGION")
+    gcs_bucket: str | None = Field(default=None, alias="GCS_BUCKET")
+    maps_static_api_key: str | None = Field(default=None, alias="MAPS_STATIC_API_KEY")
+
+    feature_vertex_ai: bool = Field(default=False, alias="FEATURE_VERTEX_AI")
+    vertex_model_display_name: str = Field(default="route-time-regressor", alias="VERTEX_MODEL_DISPLAY_NAME")
+
+    cloud_tasks_queue: str = Field(default="route-jobs", alias="CLOUD_TASKS_QUEUE")
+    cloud_tasks_service_account: str | None = Field(default=None, alias="CLOUD_TASKS_SERVICE_ACCOUNT")
+    tasks_auth_required: bool = Field(default=True, alias="TASKS_AUTH_REQUIRED")
+    cloud_tasks_audience: str | None = Field(default=None, alias="CLOUD_TASKS_AUDIENCE")
+
+    scheduler_token: str | None = Field(default=None, alias="SCHEDULER_TOKEN")
+    signed_url_ttl_seconds: int = Field(default=3600, alias="SIGNED_URL_TTL_SECONDS")
+
     @property
     def cors_origins(self) -> list[str]:
         return [item.strip() for item in self.allowed_origins.split(",") if item.strip()]

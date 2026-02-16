@@ -29,7 +29,7 @@ export function useJobStatus() {
         try {
           const latest = await getJob(jobId);
           setJob(latest);
-          if (latest.status === "SUCCEEDED" || latest.status === "FAILED" || latest.status === "CANCELLED") {
+          if (latest.status === "SUCCEEDED" || latest.status === "FAILED" || latest.status === "CANCELED" || latest.status === "CANCELLED") {
             stop();
           }
         } catch (err: any) {
@@ -64,4 +64,3 @@ export function useJobStatus() {
     stop,
   };
 }
-

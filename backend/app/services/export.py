@@ -8,7 +8,6 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
 
 import qrcode
 import httpx
@@ -19,6 +18,7 @@ from reportlab.pdfgen import canvas
 from sqlalchemy.orm import Session
 
 from app.models import Plan
+from app.services.phone import normalize_sg_phone
 from app.services.optimization import get_plan_details
 from app.utils.errors import AppError, log_error
 from app.utils.settings import get_settings
@@ -167,7 +167,7 @@ def export_plan_pdf(
                     "duration_min": max(1, round(float(route["total_duration_s"]) / 60)),
                     "start_time": _to_time(route["stops"][0]["eta_iso"]) if route["stops"] else "--:--",
                     "end_time": _to_time(route["stops"][-1]["eta_iso"]) if route["stops"] else "--:--",
-                    "qr_data_uri": _route_qr_data_uri(route),
+                    "qr_data_uri": _driver_view_qr_data_uri(plan_id, route["vehicle_idx"]),
                     "rows": _build_route_rows(route),
                 }
             )
@@ -282,23 +282,16 @@ def _build_route_rows(route: dict[str, Any]) -> list[dict[str, Any]]:
                 "service_time": _service_minutes(stop["service_start_iso"], stop["service_end_iso"]),
                 "drive_to_next": next_drive,
                 "notes": "Depot" if stop["stop_ref"] == "DEPOT" else "",
-                "phone": stop.get("phone"),
+                "phone": normalize_sg_phone(stop.get("phone")),
                 "contact_name": stop.get("contact_name"),
             }
         )
     return rows
 
 
-def _route_qr_data_uri(route: dict[str, Any]) -> str:
-    stops = [stop for stop in route["stops"] if stop["stop_ref"] != "DEPOT"]
-    if not stops:
-        return ""
-
-    origin = f"{stops[0]['lat']},{stops[0]['lon']}"
-    destination = f"{stops[-1]['lat']},{stops[-1]['lon']}"
-    waypoints = "|".join(f"{stop['lat']},{stop['lon']}" for stop in stops[1:-1])
-    waypoints_part = f"&waypoints={quote(waypoints)}" if waypoints else ""
-    link = f"https://www.google.com/maps/dir/?api=1&origin={quote(origin)}&destination={quote(destination)}{waypoints_part}"
+def _driver_view_qr_data_uri(plan_id: int, vehicle_idx: int) -> str:
+    settings = get_settings()
+    link = f"{settings.frontend_base_url.rstrip('/')}/results?plan_id={plan_id}&vehicle={vehicle_idx}&view=driver"
 
     qr = qrcode.QRCode(version=1, box_size=4, border=1)
     qr.add_data(link)
@@ -409,7 +402,15 @@ def generate_map_png(
         return cache_file.read_bytes()
 
     if progress_cb:
-        progress_cb(40, "Rendering tile-accurate map snapshot")
+        progress_cb(40, "Rendering static route map")
+
+    png = _render_google_static_map_png(selected_routes)
+    if png is not None:
+        cache_file.write_bytes(png)
+        return png
+
+    if progress_cb:
+        progress_cb(55, "Google Static Maps unavailable, trying tile screenshot renderer")
 
     png = _render_map_png_with_playwright(plan_id=plan_id, route_id=route_id, mode=mode)
     if png is None:
@@ -420,6 +421,73 @@ def generate_map_png(
 
     cache_file.write_bytes(png)
     return png
+
+
+def _encode_polyline(points: list[tuple[float, float]]) -> str:
+    def _encode_signed(value: int) -> str:
+        value = ~(value << 1) if value < 0 else value << 1
+        chunks = []
+        while value >= 0x20:
+            chunks.append(chr((0x20 | (value & 0x1F)) + 63))
+            value >>= 5
+        chunks.append(chr(value + 63))
+        return "".join(chunks)
+
+    output: list[str] = []
+    prev_lat = 0
+    prev_lon = 0
+    for lat, lon in points:
+        lat_i = int(round(lat * 1e5))
+        lon_i = int(round(lon * 1e5))
+        output.append(_encode_signed(lat_i - prev_lat))
+        output.append(_encode_signed(lon_i - prev_lon))
+        prev_lat, prev_lon = lat_i, lon_i
+    return "".join(output)
+
+
+def _render_google_static_map_png(routes: list[dict[str, Any]], *, width: int = 1280, height: int = 720) -> bytes | None:
+    settings = get_settings()
+    api_key = settings.maps_static_api_key
+    if not api_key:
+        return None
+
+    params: list[tuple[str, str]] = [
+        ("size", f"{width}x{height}"),
+        ("scale", "2"),
+        ("maptype", "roadmap"),
+        ("key", api_key),
+    ]
+
+    marker_count = 0
+    for idx, route in enumerate(routes):
+        route_color = ROUTE_COLORS[idx % len(ROUTE_COLORS)].replace("#", "")
+        ordered_stops = sorted(route["stops"], key=lambda stop: int(stop["sequence_idx"]))
+        path_points = [(float(stop["lat"]), float(stop["lon"])) for stop in ordered_stops]
+        if len(path_points) >= 2:
+            encoded = _encode_polyline(path_points)
+            params.append(("path", f"color:0x{route_color}|weight:5|enc:{encoded}"))
+
+        for stop in ordered_stops:
+            if marker_count > 120:
+                break
+            lat = float(stop["lat"])
+            lon = float(stop["lon"])
+            if stop["stop_ref"] == "DEPOT":
+                marker = f"size:mid|color:0x111827|label:D|{lat:.6f},{lon:.6f}"
+            else:
+                marker = f"size:tiny|color:0x{route_color}|{lat:.6f},{lon:.6f}"
+            params.append(("markers", marker))
+            marker_count += 1
+
+    try:
+        response = httpx.get("https://maps.googleapis.com/maps/api/staticmap", params=params, timeout=30.0)
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "")
+        if "image/" not in content_type:
+            return None
+        return response.content
+    except Exception:
+        return None
 
 
 def _render_map_png_with_playwright(*, plan_id: int, route_id: int | None, mode: str) -> bytes | None:

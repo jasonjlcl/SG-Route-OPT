@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 from typing import Any, Callable
 
 from sqlalchemy import delete, select
@@ -12,6 +14,10 @@ from app.services.ml_engine import get_ml_engine
 from app.services.routing import get_routing_service
 from app.services.vrptw import solve_vrptw
 from app.utils.errors import AppError, log_error
+
+
+MATRIX_CACHE_DIR = Path(__file__).resolve().parents[1] / "cache" / "matrix"
+MATRIX_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @dataclass
@@ -128,12 +134,32 @@ def calculate_route_duration_components(
     }
 
 
-def optimize_dataset(
+def save_matrix_artifact(*, dataset_id: int, job_id: str, artifact: dict[str, Any]) -> str:
+    target = MATRIX_CACHE_DIR / f"dataset_{dataset_id}_{job_id}.json"
+    target.write_text(json.dumps(artifact), encoding="utf-8")
+    return str(target)
+
+
+def load_matrix_artifact(path: str) -> dict[str, Any]:
+    target = Path(path)
+    if not target.exists():
+        raise AppError(
+            message="Matrix artifact not found",
+            error_code="MATRIX_ARTIFACT_NOT_FOUND",
+            status_code=404,
+            stage="ROUTING",
+            details={"path": path},
+        )
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def build_optimization_matrix_artifact(
     db: Session,
+    *,
     dataset_id: int,
     payload: OptimizationPayload,
-    *,
     progress_cb: Callable[[int, str], None] | None = None,
+    force_model_version: str | None = None,
 ) -> dict[str, Any]:
     dataset = db.get(Dataset, dataset_id)
     if dataset is None:
@@ -142,7 +168,6 @@ def optimize_dataset(
     stops = db.execute(
         select(Stop).where(Stop.dataset_id == dataset_id, Stop.geocode_status.in_(["SUCCESS", "MANUAL"]))
     ).scalars().all()
-
     if not stops:
         raise AppError(
             message="No geocoded stops available for optimization",
@@ -152,27 +177,6 @@ def optimize_dataset(
             dataset_id=dataset_id,
         )
 
-    if payload.num_vehicles <= 0:
-        raise AppError(
-            message="num_vehicles must be > 0",
-            error_code="VALIDATION_ERROR",
-            status_code=400,
-            stage="OPTIMIZATION",
-            dataset_id=dataset_id,
-        )
-
-    if payload.capacity is not None and payload.capacity <= 0:
-        raise AppError(
-            message="capacity must be > 0 when provided",
-            error_code="VALIDATION_ERROR",
-            status_code=400,
-            stage="OPTIMIZATION",
-            dataset_id=dataset_id,
-        )
-
-    if progress_cb:
-        progress_cb(5, "Preparing optimization nodes")
-
     depot_lat, depot_lon = _ensure_wgs84(payload.depot_lat, payload.depot_lon)
     nodes: list[dict[str, Any]] = [{"kind": "depot", "lat": depot_lat, "lon": depot_lon, "stop": None}]
     for stop in stops:
@@ -180,6 +184,18 @@ def optimize_dataset(
             continue
         stop_lat, stop_lon = _ensure_wgs84(stop.lat, stop.lon)
         nodes.append({"kind": "stop", "lat": stop_lat, "lon": stop_lon, "stop": stop})
+
+    if len(nodes) <= 1:
+        raise AppError(
+            message="No geocoded stops available for matrix build",
+            error_code="NO_GEOCODED_STOPS",
+            status_code=400,
+            stage="ROUTING",
+            dataset_id=dataset_id,
+        )
+
+    if progress_cb:
+        progress_cb(5, "Preparing optimization nodes")
 
     n = len(nodes)
     depart_bucket = payload.workday_start
@@ -190,9 +206,11 @@ def optimize_dataset(
     ml_engine = get_ml_engine()
 
     duration_matrix = [[0 for _ in range(n)] for _ in range(n)]
+    base_duration_matrix = [[0.0 for _ in range(n)] for _ in range(n)]
     distance_matrix = [[0.0 for _ in range(n)] for _ in range(n)]
     pair_total = max(1, n * n - n)
     pair_done = 0
+    selected_versions: list[str] = []
 
     for i in range(n):
         for j in range(n):
@@ -220,9 +238,12 @@ def optimize_dataset(
                     origin_lon=float(o["lon"]),
                     dest_lat=float(d["lat"]),
                     dest_lon=float(d["lon"]),
+                    force_model_version=force_model_version,
                 )
                 duration_matrix[i][j] = max(1, int(round(pred.duration_s)))
+                base_duration_matrix[i][j] = float(base.duration_s)
                 distance_matrix[i][j] = float(base.distance_m)
+                selected_versions.append(pred.model_version)
             except Exception as exc:  # noqa: BLE001
                 log_error(
                     db,
@@ -249,23 +270,157 @@ def optimize_dataset(
     service_times = [0]
     demands = [0]
 
-    for node in nodes[1:]:
+    serializable_nodes: list[dict[str, Any]] = [
+        {
+            "node_idx": 0,
+            "kind": "depot",
+            "stop_id": None,
+            "stop_ref": "DEPOT",
+            "lat": depot_lat,
+            "lon": depot_lon,
+            "demand": 0,
+            "service_time_min": 0,
+            "tw_start": payload.workday_start,
+            "tw_end": payload.workday_end,
+        }
+    ]
+
+    for idx, node in enumerate(nodes[1:], start=1):
         stop = node["stop"]
         if stop.tw_start and stop.tw_end:
-            time_windows.append((_hhmm_to_seconds(stop.tw_start), _hhmm_to_seconds(stop.tw_end)))
+            tw_pair = (_hhmm_to_seconds(stop.tw_start), _hhmm_to_seconds(stop.tw_end))
         else:
-            time_windows.append(workday_window)
+            tw_pair = workday_window
+        time_windows.append(tw_pair)
         service_times.append(int(stop.service_time_min or 0) * 60)
         demands.append(int(stop.demand or 0))
+        serializable_nodes.append(
+            {
+                "node_idx": idx,
+                "kind": "stop",
+                "stop_id": stop.id,
+                "stop_ref": stop.stop_ref,
+                "lat": float(node["lat"]),
+                "lon": float(node["lon"]),
+                "demand": int(stop.demand or 0),
+                "service_time_min": int(stop.service_time_min or 0),
+                "tw_start": stop.tw_start,
+                "tw_end": stop.tw_end,
+            }
+        )
+
+    model_version_counts: dict[str, int] = {}
+    for version in selected_versions:
+        model_version_counts[version] = model_version_counts.get(version, 0) + 1
+    chosen_version = max(model_version_counts.items(), key=lambda item: item[1])[0] if model_version_counts else "fallback_v1"
+
+    return {
+        "dataset_id": dataset_id,
+        "generated_at": datetime.utcnow().isoformat(),
+        "depot": {"lat": depot_lat, "lon": depot_lon},
+        "workday_start": payload.workday_start,
+        "workday_end": payload.workday_end,
+        "num_vehicles": payload.num_vehicles,
+        "capacity": payload.capacity,
+        "allow_drop_visits": payload.allow_drop_visits,
+        "solver_time_limit_s": payload.solver_time_limit_s,
+        "workday_window": [workday_window[0], workday_window[1]],
+        "nodes": serializable_nodes,
+        "time_windows": [[start, end] for start, end in time_windows],
+        "service_times_s": service_times,
+        "demands": demands,
+        "duration_matrix_s": duration_matrix,
+        "base_duration_matrix_s": base_duration_matrix,
+        "distance_matrix_m": distance_matrix,
+        "depart_bucket": depart_bucket,
+        "day_of_week": day_of_week,
+        "chosen_model_version": chosen_version,
+        "model_version_counts": model_version_counts,
+    }
+
+
+def optimize_dataset(
+    db: Session,
+    dataset_id: int,
+    payload: OptimizationPayload,
+    *,
+    progress_cb: Callable[[int, str], None] | None = None,
+) -> dict[str, Any]:
+    if payload.num_vehicles <= 0:
+        raise AppError(
+            message="num_vehicles must be > 0",
+            error_code="VALIDATION_ERROR",
+            status_code=400,
+            stage="OPTIMIZATION",
+            dataset_id=dataset_id,
+        )
+
+    if payload.capacity is not None and payload.capacity <= 0:
+        raise AppError(
+            message="capacity must be > 0 when provided",
+            error_code="VALIDATION_ERROR",
+            status_code=400,
+            stage="OPTIMIZATION",
+            dataset_id=dataset_id,
+        )
+
+    artifact = build_optimization_matrix_artifact(
+        db,
+        dataset_id=dataset_id,
+        payload=payload,
+        progress_cb=progress_cb,
+    )
+    return solve_optimization_from_artifact(
+        db,
+        dataset_id=dataset_id,
+        payload=payload,
+        artifact=artifact,
+        progress_cb=progress_cb,
+    )
+
+
+def solve_optimization_from_artifact(
+    db: Session,
+    *,
+    dataset_id: int,
+    payload: OptimizationPayload,
+    artifact: dict[str, Any],
+    progress_cb: Callable[[int, str], None] | None = None,
+) -> dict[str, Any]:
+    dataset = db.get(Dataset, dataset_id)
+    if dataset is None:
+        raise AppError(message=f"Dataset {dataset_id} not found", error_code="NOT_FOUND", status_code=404)
+
+    nodes = artifact.get("nodes", [])
+    if not nodes or len(nodes) <= 1:
+        raise AppError(
+            message="Optimization artifact has no route nodes",
+            error_code="MATRIX_ARTIFACT_INVALID",
+            status_code=400,
+            stage="OPTIMIZATION",
+        )
+
+    duration_matrix = artifact.get("duration_matrix_s", [])
+    distance_matrix = artifact.get("distance_matrix_m", [])
+    time_windows = [tuple(map(int, pair)) for pair in artifact.get("time_windows", [])]
+    service_times = [int(v) for v in artifact.get("service_times_s", [])]
+    demands = [int(v) for v in artifact.get("demands", [])]
+    workday_window_raw = artifact.get("workday_window", [_hhmm_to_seconds(payload.workday_start), _hhmm_to_seconds(payload.workday_end)])
+    workday_window = (int(workday_window_raw[0]), int(workday_window_raw[1]))
+
+    stop_ids = [int(node["stop_id"]) for node in nodes if node.get("stop_id") is not None]
+    stop_rows = db.execute(select(Stop).where(Stop.id.in_(stop_ids))).scalars().all() if stop_ids else []
+    stop_by_id = {stop.id: stop for stop in stop_rows}
+    ordered_stops = [stop_by_id[node["stop_id"]] for node in nodes if node.get("stop_id") in stop_by_id]
 
     if payload.capacity is not None:
         total_demand = sum(demands)
         if total_demand > payload.capacity * payload.num_vehicles:
-            reason, suggestions = _categorize_infeasibility(stops, payload)
+            reason, suggestions = _categorize_infeasibility(ordered_stops, payload)
             plan = Plan(
                 dataset_id=dataset_id,
-                depot_lat=depot_lat,
-                depot_lon=depot_lon,
+                depot_lat=float(artifact["depot"]["lat"]),
+                depot_lon=float(artifact["depot"]["lon"]),
                 num_vehicles=payload.num_vehicles,
                 vehicle_capacity=payload.capacity,
                 workday_start=payload.workday_start,
@@ -286,6 +441,8 @@ def optimize_dataset(
                 "suggestions": suggestions,
             }
 
+    if progress_cb:
+        progress_cb(80, "Solving VRPTW")
     result = solve_vrptw(
         time_matrix=duration_matrix,
         time_windows=time_windows,
@@ -298,15 +455,13 @@ def optimize_dataset(
         solver_time_limit_s=payload.solver_time_limit_s,
         allow_drop_visits=payload.allow_drop_visits,
     )
-    if progress_cb:
-        progress_cb(80, "Solving VRPTW")
 
     if not result.feasible:
-        reason, suggestions = _categorize_infeasibility(stops, payload)
+        reason, suggestions = _categorize_infeasibility(ordered_stops, payload)
         plan = Plan(
             dataset_id=dataset_id,
-            depot_lat=depot_lat,
-            depot_lon=depot_lon,
+            depot_lat=float(artifact["depot"]["lat"]),
+            depot_lon=float(artifact["depot"]["lon"]),
             num_vehicles=payload.num_vehicles,
             vehicle_capacity=payload.capacity,
             workday_start=payload.workday_start,
@@ -330,8 +485,8 @@ def optimize_dataset(
     plan_status = "SUCCESS" if not result.unserved_nodes else "PARTIAL"
     plan = Plan(
         dataset_id=dataset_id,
-        depot_lat=depot_lat,
-        depot_lon=depot_lon,
+        depot_lat=float(artifact["depot"]["lat"]),
+        depot_lon=float(artifact["depot"]["lon"]),
         num_vehicles=payload.num_vehicles,
         vehicle_capacity=payload.capacity,
         workday_start=payload.workday_start,
@@ -346,10 +501,11 @@ def optimize_dataset(
     route_start_times: list[int] = []
     route_end_times: list[int] = []
     total_vehicle_duration_s = 0
+
     for vehicle_idx, route_nodes in enumerate(result.routes):
         total_distance = 0.0
         for a, b in zip(route_nodes[:-1], route_nodes[1:]):
-            total_distance += distance_matrix[a][b]
+            total_distance += float(distance_matrix[a][b])
         duration_components = calculate_route_duration_components(
             route_nodes=route_nodes,
             route_arrivals=result.arrivals[vehicle_idx],
@@ -372,7 +528,7 @@ def optimize_dataset(
 
         for seq, node_idx in enumerate(route_nodes):
             node = nodes[node_idx]
-            stop = node["stop"]
+            stop_id = node.get("stop_id")
             arrival_s = int(result.arrivals[vehicle_idx][seq])
             service_start_s = arrival_s
             service_end_s = arrival_s + (service_times[node_idx] if node_idx < len(service_times) else 0)
@@ -381,7 +537,7 @@ def optimize_dataset(
                 RouteStop(
                     route_id=route_row.id,
                     sequence_idx=seq,
-                    stop_id=stop.id if stop else None,
+                    stop_id=int(stop_id) if stop_id is not None else None,
                     eta_iso=_seconds_to_iso(arrival_s),
                     arrival_window_start_iso=_seconds_to_iso(tw_s),
                     arrival_window_end_iso=_seconds_to_iso(tw_e),
@@ -412,7 +568,11 @@ def optimize_dataset(
     if progress_cb:
         progress_cb(100, "Optimization complete")
 
-    unserved_stop_ids = [nodes[idx]["stop"].id for idx in result.unserved_nodes if nodes[idx]["stop"]]
+    unserved_stop_ids = []
+    for idx in result.unserved_nodes:
+        stop_id = nodes[idx].get("stop_id")
+        if stop_id is not None:
+            unserved_stop_ids.append(int(stop_id))
 
     return {
         "plan_id": plan.id,
@@ -423,6 +583,7 @@ def optimize_dataset(
         "sum_vehicle_durations_s": float(total_vehicle_duration_s),
         "route_summary": route_summaries,
         "unserved_stop_ids": unserved_stop_ids,
+        "model_version": artifact.get("chosen_model_version"),
     }
 
 

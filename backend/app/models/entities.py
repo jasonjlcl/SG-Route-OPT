@@ -144,8 +144,13 @@ class Job(Base):
     type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="QUEUED", index=True)
     progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    progress_pct: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    current_step: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     payload_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    steps_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     result_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -161,6 +166,8 @@ class MLModel(Base):
     feature_schema_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     training_data_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
     metrics_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    artifact_gcs_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
+    vertex_model_resource: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="TRAINED", index=True)
 
 

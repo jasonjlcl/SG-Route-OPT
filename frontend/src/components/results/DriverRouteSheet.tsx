@@ -33,7 +33,7 @@ function fmtTime(value: string) {
 function normalizePhone(value?: string | null): string | null {
   if (!value) return null;
   const digits = value.replace(/[^\d]/g, "");
-  if (digits.length === 8) return digits;
+  if (digits.length === 8) return `+65${digits}`;
   if (digits.length === 10 && digits.startsWith("65")) return `+${digits}`;
   return null;
 }
@@ -95,7 +95,7 @@ export function DriverRouteSheet({ vehicleIdx, stops, totalDistanceM, totalDurat
               {(stop.phone || stop.contact_name) && (
                 <p className="text-sm text-muted-foreground">
                   <span className="font-semibold text-foreground">Contact:</span> {stop.contact_name || "On-site contact"}
-                  {stop.phone ? ` (${stop.phone})` : ""}
+                  {callPhone ? ` (${callPhone})` : stop.phone ? ` (${stop.phone})` : ""}
                 </p>
               )}
 
@@ -111,7 +111,7 @@ export function DriverRouteSheet({ vehicleIdx, stops, totalDistanceM, totalDurat
                     <Button className="h-11" variant="outline" onClick={() => window.open(`tel:${callPhone}`, "_self")}>
                       <Phone className="mr-2 h-4 w-4" /> Call
                     </Button>
-                    <Button className="h-11" variant="outline" onClick={() => void copyText(stop.phone || "") }>
+                    <Button className="h-11" variant="outline" onClick={() => void copyText(callPhone) }>
                       <Copy className="mr-2 h-4 w-4" /> Copy phone
                     </Button>
                   </>

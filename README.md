@@ -1,6 +1,6 @@
 # SG Route Optimization MVP
 
-Local full-stack MVP for upload -> validate -> geocode -> optimize VRPTW -> visualize routes -> export CSV/PDF.
+Local full-stack MVP for upload -> validate -> geocode -> optimize VRPTW -> interactive resequence -> visualize routes -> export driver artifacts (CSV/PDF/static maps) with async job orchestration.
 
 Architecture diagrams and gap-closure roadmap: `ARCHITECTURE.md`
 
@@ -28,8 +28,8 @@ Design system files:
 - Optimizer: OR-Tools (VRPTW + optional capacity)
 - ML: scikit-learn baseline, fallback heuristic when model missing
 - DB: SQLite (swap-ready for Postgres via `DATABASE_URL`)
-- Cache/Queue: Redis + RQ job queue (inline fallback for local/test)
-- Static map rendering: Playwright screenshot (PNG) with local fallback renderer
+- Cache/Queue: Redis + RQ (legacy/background ML jobs) and Cloud Tasks-compatible async step pipeline for optimize flow
+- Static map rendering: Google Static Maps API (preferred) with Playwright/fallback renderer when key is absent
 - Frontend: React + Vite + TypeScript + React-Leaflet
 - External APIs: OneMap Search + OneMap Routing (mock mode if creds missing)
 
@@ -59,23 +59,39 @@ Copy and edit:
 cp .sample.env .env
 ```
 
-Required env vars:
+Core env vars:
 
+- `GCP_PROJECT_ID`
+- `GCP_REGION` (default `asia-southeast1`)
+- `GCS_BUCKET` (for example `gs://route_app`)
+- `MAPS_STATIC_API_KEY`
 - `ONEMAP_EMAIL`
 - `ONEMAP_PASSWORD`
+
+ML and rollout options:
+
+- `FEATURE_VERTEX_AI` (`true`/`false`, default `false`)
+- `VERTEX_MODEL_DISPLAY_NAME` (default `route-time-regressor`)
+- `ML_DRIFT_THRESHOLD`
+- `ML_RETRAIN_MIN_ROWS`
+
+Queue/scheduler/security options:
+
+- `CLOUD_TASKS_QUEUE` (default `route-jobs`)
+- `CLOUD_TASKS_SERVICE_ACCOUNT` (used for OIDC on `/tasks/handle`)
+- `CLOUD_TASKS_AUDIENCE` (optional, defaults to `${APP_BASE_URL}/tasks/handle`)
+- `TASKS_AUTH_REQUIRED` (default `true`)
+- `SCHEDULER_TOKEN` (optional shared secret for `/api/v1/ml/drift-report`)
+
+General runtime options:
+
 - `REDIS_URL` (default `redis://redis:6379/0`)
-- `APP_ENV`
-- `MAX_UPLOAD_MB`
-
-Optional:
-
 - `DATABASE_URL` (default `sqlite:///./app.db`)
 - `ALLOWED_ORIGINS` (default `http://localhost:5173`)
 - `APP_BASE_URL` (default `http://localhost:8000`)
 - `FRONTEND_BASE_URL` (default `http://localhost:5173`)
-- `JOBS_FORCE_INLINE` (set `true` to run jobs in API process, useful without worker)
-- `ML_DRIFT_THRESHOLD`
-- `ML_RETRAIN_MIN_ROWS`
+- `JOBS_FORCE_INLINE` (set `true` for local/test to execute queued steps inline)
+- `SIGNED_URL_TTL_SECONDS` (default `3600`)
 
 If OneMap credentials are empty, backend automatically uses deterministic mock geocoding/routing for local development.
 
@@ -106,6 +122,33 @@ npm run dev -- --host 0.0.0.0 --port 5173
 
 Open: `http://localhost:5173`
 
+## GCP Deployment (Cloud Run + Cloud Tasks)
+
+Scripts:
+
+- Deploy: `infra/gcp/deploy.sh`
+- Teardown: `infra/gcp/teardown.sh`
+
+Deploy example:
+
+```bash
+export GCP_PROJECT_ID=gen-lang-client-0328386378
+export GCP_REGION=asia-southeast1
+export GCS_BUCKET=gs://route_app
+export MAPS_STATIC_API_KEY=your_key
+export ONEMAP_EMAIL=your_email
+export ONEMAP_PASSWORD=your_password
+export FEATURE_VERTEX_AI=false
+
+bash infra/gcp/deploy.sh
+```
+
+Guardrails baked in:
+
+- Cloud Run `min-instances=0`, `max-instances=1`
+- Cloud Tasks queue throttled (`max-concurrent-dispatches=1`)
+- Weekly Cloud Scheduler trigger for `/api/v1/ml/drift-report`
+
 ## Workflow Usage (Planner)
 
 1. Upload (`/upload`)
@@ -125,9 +168,11 @@ Open: `http://localhost:5173`
 
 4. Optimize (`/optimization`)
 - Configure depot, fleet, workday, solver options
-- Run optimization (background job)
+- Run optimization (background pipeline job with steps: `GEOCODE -> BUILD_MATRIX -> OPTIMIZE -> GENERATE_EXPORTS`)
 - If infeasible, apply suggestion chips and rerun
 - Watch solver/matrix progress and resume after navigation
+- Run A/B simulation mode (baseline fallback vs ML-enhanced travel times)
+- Download A/B report package (CSV + plot + JSON)
 
 5. Results (`/results`)
 - Planner View: map + route cards + stop sequence
@@ -162,6 +207,7 @@ PDF notes:
 - Renderer: WeasyPrint when native libs are present
 - Safe fallback: ReportLab PDF if WeasyPrint runtime libs are unavailable
 - Map embedding prefers Playwright-rendered PNG (`/print/map`) when available
+- Phone actions are direct `tel:` links only (no Twilio dependency)
 
 ## Docker
 
@@ -211,9 +257,12 @@ S3,,768024,1,6,09:30,16:00,91234567,Ops Desk
 - `POST /api/v1/datasets/{dataset_id}/geocode?failed_only=true|false`
 - `POST /api/v1/stops/{stop_id}/geocode/manual`
 - `POST /api/v1/datasets/{dataset_id}/optimize`
+- `POST /api/v1/datasets/{dataset_id}/optimize/ab-test`
+- `POST /api/v1/jobs/optimize`
 - `GET /api/v1/jobs/{job_id}`
 - `GET /api/v1/jobs/{job_id}/events`
 - `GET /api/v1/jobs/{job_id}/file`
+- `POST /tasks/handle` (Cloud Tasks worker callback with OIDC auth)
 - `GET /api/v1/plans/{plan_id}`
 - `POST /api/v1/plans/{plan_id}/routes/{route_id}/resequence`
 - `GET /api/v1/plans/{plan_id}/export?format=csv|pdf`
@@ -223,10 +272,16 @@ S3,,768024,1,6,09:30,16:00,91234567,Ops Desk
 - `GET /api/v1/plans/{plan_id}/map.png`
 - `POST /api/v1/plans/{plan_id}/map.png`
 - `GET /api/v1/ml/models`
+- `GET /api/v1/ml/config`
+- `POST /api/v1/ml/config`
 - `POST /api/v1/ml/models/train`
+- `POST /api/v1/ml/models/train/vertex`
 - `POST /api/v1/ml/rollout`
 - `POST /api/v1/ml/actuals/upload`
 - `GET /api/v1/ml/metrics/latest`
+- `POST /api/v1/ml/drift-report`
+- `GET /api/v1/ml/evaluation/compare`
+- `POST /api/v1/ml/evaluation/run`
 - `GET /api/v1/health`
 
 ## Curl Examples
@@ -264,6 +319,38 @@ curl -X POST "http://localhost:8000/api/v1/datasets/1/optimize" \
 curl "http://localhost:8000/api/v1/jobs/<job_id>"
 ```
 
+### Start Optimize Pipeline via Jobs API
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/jobs/optimize" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataset_id": 1,
+    "depot_lat": 1.3521,
+    "depot_lon": 103.8198,
+    "fleet_config": {"num_vehicles": 2, "capacity": 25},
+    "workday_start": "08:00",
+    "workday_end": "18:00",
+    "solver": {"solver_time_limit_s": 20, "allow_drop_visits": true}
+  }'
+```
+
+### Optimize A/B Simulation (Baseline vs ML)
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/datasets/1/optimize/ab-test" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "depot_lat": 1.3521,
+    "depot_lon": 103.8198,
+    "fleet": {"num_vehicles": 2, "capacity": 25},
+    "workday_start": "08:00",
+    "workday_end": "18:00",
+    "solver": {"solver_time_limit_s": 15, "allow_drop_visits": true},
+    "model_version": null
+  }'
+```
+
 ### Get Plan + Exports
 
 ```bash
@@ -291,7 +378,35 @@ Capabilities:
 - Set active/canary rollout (`POST /api/v1/ml/rollout`)
 - Upload actuals CSV (`POST /api/v1/ml/actuals/upload`)
 - Latest MAE/MAPE + drift snapshot (`GET /api/v1/ml/metrics/latest`)
+- Baseline vs ML formal evaluation (`GET /api/v1/ml/evaluation/compare`)
+- Evaluation report package generation (`POST /api/v1/ml/evaluation/run`)
 - Daily monitoring + weekly retrain-if-needed scheduler (backend startup)
+
+### Formal Evaluation KPIs
+
+The evaluation pipeline compares fallback baseline vs selected ML model across:
+
+- `MAE (s)`
+- `MAPE (%)`
+- `RMSE (s)`
+- `P90 Absolute Error (s)`
+- `Within 15% Error Rate`
+
+It also outputs segmented metrics (`peak/off-peak`, `short/long haul`) and uncertainty-aware prediction samples.
+
+### Baseline vs ML Compare
+
+```bash
+curl "http://localhost:8000/api/v1/ml/evaluation/compare?days=30&limit=5000"
+```
+
+### Generate Evaluation Report Package
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/ml/evaluation/run" \
+  -H "Content-Type: application/json" \
+  -d '{"days":30,"limit":5000,"model_version":null}'
+```
 
 ### ML Training Script
 
@@ -309,12 +424,52 @@ Required columns:
 - optional `distance_m`
 
 Artifacts are saved in `backend/app/ml/artifacts/`.
+Each run writes:
+
+- `model.pkl`
+- `metrics.json`
+- `feature_schema.json`
+- `version.txt`
+
+## Interview Demo Checklist
+
+1. Upload + validate
+- Upload `sample_stops.csv`
+- Show partial/valid summary and optional `phone`/`contact_name` handling
+
+2. Async optimize pipeline
+- Start optimization from `/optimization`
+- Open job status and show step progression: `GEOCODE`, `BUILD_MATRIX`, `OPTIMIZE`, `GENERATE_EXPORTS`
+- Confirm UI only marks workflow stage complete after success
+
+3. Planner resequencing
+- Go to `/results` -> Planner View -> `Edit mode`
+- Drag/drop route stops with `dnd-kit`
+- Click `Recompute ETAs`
+- Show violation badges + tooltip details, then `Revert` and `Apply changes`
+
+4. Driver clarity + phone support
+- Open Driver View
+- Show `Navigate`, `Copy address`, and `Call` button via `tel:` link (only appears for valid phone)
+
+5. Static maps + PDF pack
+- Open Exports tab and generate PDF
+- Show route map PNG and driver pack output
+- Mention GCS paths:
+  - `maps/{plan_id}/{route_id}.png`
+  - `driver_packs/{plan_id}/driver_pack.pdf`
+
+6. MLOps
+- Open `/ml`
+- Show model registry, rollout config, canary settings, and drift metrics
+- Run baseline vs ML evaluation and download report package
 
 ### View Job Progress
 
 - Poll: `GET /api/v1/jobs/{job_id}`
 - Stream: `GET /api/v1/jobs/{job_id}/events` (SSE)
 - Download generated artifact: `GET /api/v1/jobs/{job_id}/file`
+- Job payload includes `progress_pct`, `current_step`, step state map, and error metadata (`error_code`, `error_detail`).
 
 ## Tests
 

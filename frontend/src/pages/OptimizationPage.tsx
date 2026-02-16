@@ -1,9 +1,9 @@
-﻿import { Clock3, Settings2, Sparkles, Wand2 } from "lucide-react";
+import { Clock3, FlaskConical, Settings2, Sparkles, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { optimizeDataset } from "../api";
+import { getJobFileUrl, optimizeDataset, startOptimizeAbTest } from "../api";
 import { useWorkflowContext } from "../components/layout/WorkflowContext";
 import { useJobStatus } from "../hooks/useJobStatus";
 import { EmptyState } from "../components/status/EmptyState";
@@ -27,6 +27,13 @@ type OptimizationResult = {
   suggestions?: string[];
 };
 
+type AbSimulationResult = {
+  comparison?: { key: string; label: string; baseline: number; ml: number; improvement_pct: number | null }[];
+  baseline?: Record<string, unknown>;
+  ml?: Record<string, unknown>;
+  model_version?: string;
+};
+
 export function OptimizationPage() {
   const navigate = useNavigate();
   const { datasetId, dataset, setPlanId, refresh } = useWorkflowContext();
@@ -41,12 +48,32 @@ export function OptimizationPage() {
   const [workEnd, setWorkEnd] = useState("18:00");
   const [solverTimeLimit, setSolverTimeLimit] = useState("20");
   const [allowDrop, setAllowDrop] = useState(true);
+  const [experimentModelVersion, setExperimentModelVersion] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
+  const [abResult, setAbResult] = useState<AbSimulationResult | null>(null);
+
   const [activeJobId, setActiveJobId] = useState<string | null>(() => localStorage.getItem("optimize_job_id"));
-  const { job, start: startJobTracking } = useJobStatus();
+  const [experimentJobId, setExperimentJobId] = useState<string | null>(null);
+  const optimizeJob = useJobStatus();
+  const experimentJob = useJobStatus();
+
+  const buildPayload = () => ({
+    depot_lat: Number(depotLat),
+    depot_lon: Number(depotLon),
+    fleet: {
+      num_vehicles: Number(numVehicles),
+      capacity: useCapacity ? Number(capacity) : null,
+    },
+    workday_start: workStart,
+    workday_end: workEnd,
+    solver: {
+      solver_time_limit_s: Number(solverTimeLimit),
+      allow_drop_visits: allowDrop,
+    },
+  });
 
   const loadFromJobResult = async (jobData: any) => {
     const resultRef = jobData?.result_ref as OptimizationResult | undefined;
@@ -60,11 +87,18 @@ export function OptimizationPage() {
 
   useEffect(() => {
     if (activeJobId) {
-      void startJobTracking(activeJobId);
+      void optimizeJob.start(activeJobId);
     }
-  }, [activeJobId, startJobTracking]);
+  }, [activeJobId, optimizeJob.start]);
 
   useEffect(() => {
+    if (experimentJobId) {
+      void experimentJob.start(experimentJobId);
+    }
+  }, [experimentJobId, experimentJob.start]);
+
+  useEffect(() => {
+    const job = optimizeJob.job;
     if (!job) return;
     if (job.status === "SUCCEEDED") {
       localStorage.removeItem("optimize_job_id");
@@ -78,7 +112,22 @@ export function OptimizationPage() {
       toast.error("Optimization failed", { description: job.message ?? "Adjust constraints and retry." });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job?.status, job?.message]);
+  }, [optimizeJob.job?.status, optimizeJob.job?.message]);
+
+  useEffect(() => {
+    const job = experimentJob.job;
+    if (!job) return;
+    if (job.status === "SUCCEEDED") {
+      setExperimentJobId(null);
+      const resultRef = (job.result_ref || {}) as AbSimulationResult;
+      setAbResult(resultRef);
+      toast.success("A/B simulation complete", { description: "Baseline vs ML KPI comparison ready." });
+    } else if (job.status === "FAILED") {
+      setExperimentJobId(null);
+      setError(job.message ?? "A/B simulation failed.");
+      toast.error("A/B simulation failed", { description: job.message ?? "Check constraints and rerun." });
+    }
+  }, [experimentJob.job]);
 
   const applySuggestion = (suggestion: string) => {
     const s = suggestion.toLowerCase();
@@ -109,25 +158,10 @@ export function OptimizationPage() {
     try {
       setLoading(true);
       setError(null);
-      const payload = {
-        depot_lat: Number(depotLat),
-        depot_lon: Number(depotLon),
-        fleet: {
-          num_vehicles: Number(numVehicles),
-          capacity: useCapacity ? Number(capacity) : null,
-        },
-        workday_start: workStart,
-        workday_end: workEnd,
-        solver: {
-          solver_time_limit_s: Number(solverTimeLimit),
-          allow_drop_visits: allowDrop,
-        },
-      };
-
-      const accepted = await optimizeDataset(datasetId, payload);
+      const accepted = await optimizeDataset(datasetId, buildPayload());
       setActiveJobId(accepted.job_id);
       localStorage.setItem("optimize_job_id", accepted.job_id);
-      await startJobTracking(accepted.job_id);
+      await optimizeJob.start(accepted.job_id);
       toast.info("Optimization started", {
         description: "Running in background. You can monitor progress and come back later.",
       });
@@ -139,6 +173,25 @@ export function OptimizationPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runAbSimulation = async () => {
+    if (!datasetId) return;
+    try {
+      setError(null);
+      const payload = {
+        ...buildPayload(),
+        model_version: experimentModelVersion || null,
+      };
+      const accepted = await startOptimizeAbTest(datasetId, payload);
+      setExperimentJobId(accepted.job_id);
+      await experimentJob.start(accepted.job_id);
+      toast.info("A/B simulation started", {
+        description: "Comparing baseline fallback vs ML-enhanced optimization.",
+      });
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? "Unable to run A/B simulation.");
     }
   };
 
@@ -259,12 +312,58 @@ export function OptimizationPage() {
               Open results
             </Button>
           </div>
-          {activeJobId && job && (
+          {activeJobId && optimizeJob.job && (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-              <p className="font-semibold">Optimization progress: {job.progress}%</p>
-              <p className="text-muted-foreground">{job.message ?? "Running..."}</p>
+              <p className="font-semibold">Optimization progress: {optimizeJob.job.progress}%</p>
+              {optimizeJob.job.current_step ? <p className="text-xs text-muted-foreground">Step: {optimizeJob.job.current_step}</p> : null}
+              <p className="text-muted-foreground">{optimizeJob.job.message ?? "Running..."}</p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>A/B Simulation Mode</CardTitle>
+          <CardDescription>Compare baseline fallback vs ML-enhanced optimization on the same constraints and dataset.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+            <Input
+              value={experimentModelVersion}
+              onChange={(event) => setExperimentModelVersion(event.target.value)}
+              placeholder="Optional model version override (otherwise active rollout)"
+            />
+            <Button variant="outline" onClick={() => void runAbSimulation()} disabled={!!experimentJobId}>
+              <FlaskConical className="mr-2 h-4 w-4" /> Run A/B simulation
+            </Button>
+          </div>
+          {experimentJob.job && (
+            <div className="rounded-lg border p-3 text-sm">
+              <p className="font-semibold">Experiment progress: {experimentJob.job.progress}%</p>
+              <p className="text-muted-foreground">{experimentJob.job.message}</p>
+            </div>
+          )}
+          {abResult?.comparison?.length ? (
+            <div className="space-y-2 rounded-lg border p-3 text-sm">
+              <p className="font-semibold">Baseline vs ML KPI impact</p>
+              {abResult.comparison.map((row) => (
+                <div key={row.key} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-b-0">
+                  <span>{row.label}</span>
+                  <span className="text-muted-foreground">Baseline {row.baseline.toFixed(2)}</span>
+                  <span className="text-muted-foreground">ML {row.ml.toFixed(2)}</span>
+                  <span className="font-semibold">{row.improvement_pct !== null ? `${row.improvement_pct.toFixed(2)}%` : "--"}</span>
+                </div>
+              ))}
+              {experimentJob.job?.job_id ? (
+                <div className="pt-2">
+                  <Button variant="secondary" onClick={() => window.open(getJobFileUrl(experimentJob.job!.job_id), "_blank")}>
+                    Download A/B report package
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -339,20 +438,13 @@ export function OptimizationPage() {
 
                 <div className="flex flex-wrap gap-2">
                   {result.suggestions?.map((suggestion) => (
-                    <Button
-                      key={suggestion}
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => applySuggestion(suggestion)}
-                    >
+                    <Button key={suggestion} variant="secondary" size="sm" onClick={() => applySuggestion(suggestion)}>
                       <Wand2 className="mr-2 h-3.5 w-3.5" /> {suggestion}
                     </Button>
                   ))}
                 </div>
 
-                <p className="text-xs text-muted-foreground">
-                  Tap a suggestion to auto-adjust fields, then run optimization again.
-                </p>
+                <p className="text-xs text-muted-foreground">Tap a suggestion to auto-adjust fields, then run optimization again.</p>
               </div>
             )}
           </CardContent>
@@ -361,4 +453,3 @@ export function OptimizationPage() {
     </div>
   );
 }
-

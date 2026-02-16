@@ -8,6 +8,7 @@ from app.schemas.api import (
     DatasetSummaryResponse,
     DatasetUploadResponse,
     JobAcceptedResponse,
+    OptimizeExperimentRequest,
     OptimizeRequest,
     OptimizeResponse,
     StopsPageResponse,
@@ -19,6 +20,7 @@ from app.services.datasets import (
     list_stops,
 )
 from app.services.geocoding import geocode_dataset
+from app.services.job_pipeline import create_optimize_pipeline_job
 from app.services.jobs import create_job, enqueue_job
 from app.services.optimization import OptimizationPayload, optimize_dataset
 from app.utils.db import get_db
@@ -79,7 +81,7 @@ def run_geocoding(
 
     job = create_job(
         db,
-        job_type="GEOCODE_DATASET",
+        job_type="GEOCODE",
         payload={"dataset_id": dataset_id, "failed_only": failed_only, "force_all": force_all},
     )
     enqueue_job(job)
@@ -117,9 +119,30 @@ def optimize(
         )
         return OptimizeResponse(**result).model_dump()
 
+    job = create_optimize_pipeline_job(
+        db,
+        dataset_id=dataset_id,
+        depot_lat=payload.depot_lat,
+        depot_lon=payload.depot_lon,
+        num_vehicles=payload.fleet.num_vehicles,
+        capacity=payload.fleet.capacity,
+        workday_start=payload.workday_start,
+        workday_end=payload.workday_end,
+        solver_time_limit_s=payload.solver.solver_time_limit_s,
+        allow_drop_visits=payload.solver.allow_drop_visits,
+    )
+    return JobAcceptedResponse(job_id=job.id, type=job.type).model_dump()
+
+
+@router.post("/{dataset_id}/optimize/ab-test")
+def optimize_ab_test(
+    dataset_id: int,
+    payload: OptimizeExperimentRequest,
+    db: Session = Depends(get_db),
+) -> dict:
     job = create_job(
         db,
-        job_type="OPTIMIZE_DATASET",
+        job_type="OPTIMIZE_AB_SIMULATION",
         payload={
             "dataset_id": dataset_id,
             "depot_lat": payload.depot_lat,
@@ -130,6 +153,7 @@ def optimize(
             "workday_end": payload.workday_end,
             "solver_time_limit_s": payload.solver.solver_time_limit_s,
             "allow_drop_visits": payload.solver.allow_drop_visits,
+            "model_version": payload.model_version,
         },
     )
     enqueue_job(job)

@@ -1,10 +1,10 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import joblib
 import numpy as np
@@ -13,27 +13,37 @@ from sqlalchemy.orm import Session
 
 from app.models import MLModel, PredictionCache, PredictionLog
 from app.services.cache import get_cache
+from app.services.ml_features import build_feature_dict, fallback_duration, feature_vector
 from app.services.ml_ops import choose_model_version_for_prediction
 
 ARTIFACT_DIR = Path(__file__).resolve().parents[1] / "ml" / "artifacts"
+PredictionStrategy = Literal["auto", "model", "fallback"]
 
 
 @dataclass
 class PredictionResult:
     duration_s: float
     model_version: str
+    lower_s: float
+    upper_s: float
+    std_s: float
+    strategy: PredictionStrategy
 
 
 class MLPredictionEngine:
     def __init__(self) -> None:
         self.cache = get_cache()
         self._model_cache: dict[str, Any] = {}
+        self._metrics_cache: dict[str, dict[str, Any]] = {}
+
+    def _load_model_row(self, db: Session, version: str) -> MLModel | None:
+        return db.execute(select(MLModel).where(MLModel.version == version)).scalar_one_or_none()
 
     def _load_model(self, db: Session, version: str) -> Any | None:
         if version in self._model_cache:
             return self._model_cache[version]
 
-        model_row = db.execute(select(MLModel).where(MLModel.version == version)).scalar_one_or_none()
+        model_row = self._load_model_row(db, version)
         if model_row is None:
             return None
 
@@ -47,8 +57,43 @@ class MLPredictionEngine:
         self._model_cache[version] = model
         return model
 
+    def _metrics_for_version(self, db: Session, version: str) -> dict[str, Any]:
+        if version in self._metrics_cache:
+            return self._metrics_cache[version]
+        row = self._load_model_row(db, version)
+        metrics: dict[str, Any] = {}
+        if row and row.metrics_json:
+            try:
+                decoded = json.loads(row.metrics_json)
+                if isinstance(decoded, dict):
+                    metrics = decoded
+            except json.JSONDecodeError:
+                metrics = {}
+        self._metrics_cache[version] = metrics
+        return metrics
+
+    def _uncertainty(self, db: Session, model_version: str, duration_s: float) -> tuple[float, float, float]:
+        if model_version == "fallback_v1":
+            # fallback has wider uncertainty
+            std_s = max(20.0, duration_s * 0.18)
+            p90 = max(30.0, duration_s * 0.28)
+            return std_s, p90, max(15.0, duration_s * 0.12)
+
+        metrics = self._metrics_for_version(db, model_version)
+        std_s = float(metrics.get("residual_std_s") or metrics.get("std_s") or max(15.0, duration_s * 0.08))
+        p90 = float(metrics.get("uncertainty_p90_s") or metrics.get("p90_abs_error_s") or max(25.0, duration_s * 0.12))
+        p50 = float(metrics.get("uncertainty_p50_s") or metrics.get("p50_abs_error_s") or max(10.0, duration_s * 0.06))
+        return std_s, p90, p50
+
     def _key(self, od_cache_id: int, model_version: str) -> str:
         return f"pred:{od_cache_id}:{model_version}"
+
+    def _resolve_model_version(self, db: Session, *, strategy: PredictionStrategy, force_model_version: str | None) -> str | None:
+        if strategy == "fallback":
+            return None
+        if force_model_version:
+            return force_model_version
+        return choose_model_version_for_prediction(db)
 
     def predict_duration(
         self,
@@ -62,8 +107,11 @@ class MLPredictionEngine:
         origin_lon: float | None = None,
         dest_lat: float | None = None,
         dest_lon: float | None = None,
+        strategy: PredictionStrategy = "auto",
+        force_model_version: str | None = None,
+        log_prediction: bool = True,
     ) -> PredictionResult:
-        selected_version = choose_model_version_for_prediction(db)
+        selected_version = self._resolve_model_version(db, strategy=strategy, force_model_version=force_model_version)
         model_version = selected_version or "fallback_v1"
 
         if od_cache_id > 0:
@@ -71,20 +119,38 @@ class MLPredictionEngine:
             redis_hit = self.cache.get(key)
             if redis_hit:
                 duration = float(redis_hit["duration_s"])
-                self._log_prediction(
-                    db,
+                std_s, p90, _ = self._uncertainty(db, model_version, duration)
+                lower = max(1.0, duration - p90)
+                upper = duration + p90
+                if log_prediction:
+                    self._log_prediction(
+                        db,
+                        model_version=model_version,
+                        origin_lat=origin_lat,
+                        origin_lon=origin_lon,
+                        dest_lat=dest_lat,
+                        dest_lon=dest_lon,
+                        feature_payload={
+                            "base_duration_s": float(base_duration_s),
+                            "distance_m": float(distance_m),
+                            "hour": depart_dt.hour,
+                            "day_of_week": depart_dt.weekday(),
+                        },
+                        predicted_duration_s=duration,
+                        base_duration_s=base_duration_s,
+                        depart_dt=depart_dt,
+                        source="redis_cache",
+                        strategy=strategy,
+                        uncertainty={"lower_s": lower, "upper_s": upper, "std_s": std_s},
+                    )
+                return PredictionResult(
+                    duration_s=duration,
                     model_version=model_version,
-                    origin_lat=origin_lat,
-                    origin_lon=origin_lon,
-                    dest_lat=dest_lat,
-                    dest_lon=dest_lon,
-                    base_duration_s=base_duration_s,
-                    predicted_duration_s=duration,
-                    distance_m=distance_m,
-                    depart_dt=depart_dt,
-                    source="redis_cache",
+                    lower_s=lower,
+                    upper_s=upper,
+                    std_s=std_s,
+                    strategy=strategy,
                 )
-                return PredictionResult(duration_s=duration, model_version=model_version)
 
             cached = db.execute(
                 select(PredictionCache).where(
@@ -95,6 +161,47 @@ class MLPredictionEngine:
             if cached:
                 duration = float(cached.predicted_duration_s)
                 self.cache.set(key, {"duration_s": duration}, ttl_seconds=24 * 3600)
+                std_s, p90, _ = self._uncertainty(db, model_version, duration)
+                lower = max(1.0, duration - p90)
+                upper = duration + p90
+                if log_prediction:
+                    self._log_prediction(
+                        db,
+                        model_version=model_version,
+                        origin_lat=origin_lat,
+                        origin_lon=origin_lon,
+                        dest_lat=dest_lat,
+                        dest_lon=dest_lon,
+                        feature_payload={
+                            "base_duration_s": float(base_duration_s),
+                            "distance_m": float(distance_m),
+                            "hour": depart_dt.hour,
+                            "day_of_week": depart_dt.weekday(),
+                        },
+                        predicted_duration_s=duration,
+                        base_duration_s=base_duration_s,
+                        depart_dt=depart_dt,
+                        source="db_cache",
+                        strategy=strategy,
+                        uncertainty={"lower_s": lower, "upper_s": upper, "std_s": std_s},
+                    )
+                return PredictionResult(
+                    duration_s=duration,
+                    model_version=model_version,
+                    lower_s=lower,
+                    upper_s=upper,
+                    std_s=std_s,
+                    strategy=strategy,
+                )
+
+        # If coordinates are missing, fallback to simple features.
+        if None in {origin_lat, origin_lon, dest_lat, dest_lon}:
+            duration = fallback_duration(base_duration_s, depart_dt.hour)
+            model_version = "fallback_v1"
+            std_s, p90, _ = self._uncertainty(db, model_version, duration)
+            lower = max(1.0, duration - p90)
+            upper = duration + p90
+            if log_prediction:
                 self._log_prediction(
                     db,
                     model_version=model_version,
@@ -102,25 +209,50 @@ class MLPredictionEngine:
                     origin_lon=origin_lon,
                     dest_lat=dest_lat,
                     dest_lon=dest_lon,
-                    base_duration_s=base_duration_s,
+                    feature_payload={
+                        "base_duration_s": float(base_duration_s),
+                        "distance_m": float(distance_m),
+                        "hour": depart_dt.hour,
+                        "day_of_week": depart_dt.weekday(),
+                    },
                     predicted_duration_s=duration,
-                    distance_m=distance_m,
+                    base_duration_s=base_duration_s,
                     depart_dt=depart_dt,
-                    source="db_cache",
+                    source="inference_missing_coords",
+                    strategy=strategy,
+                    uncertainty={"lower_s": lower, "upper_s": upper, "std_s": std_s},
                 )
-                return PredictionResult(duration_s=duration, model_version=model_version)
+            return PredictionResult(
+                duration_s=duration,
+                model_version=model_version,
+                lower_s=lower,
+                upper_s=upper,
+                std_s=std_s,
+                strategy=strategy,
+            )
 
-        hour = depart_dt.hour
-        day_of_week = depart_dt.weekday()
-        model = self._load_model(db, model_version) if selected_version else None
+        feature_payload = build_feature_dict(
+            base_duration_s=float(base_duration_s),
+            distance_m=float(distance_m),
+            depart_dt=depart_dt,
+            origin_lat=float(origin_lat),
+            origin_lon=float(origin_lon),
+            dest_lat=float(dest_lat),
+            dest_lon=float(dest_lon),
+        )
 
-        if model is None:
-            duration = self._fallback_duration(base_duration_s, hour)
+        model = self._load_model(db, model_version) if selected_version is not None else None
+        if strategy == "fallback" or model is None:
+            duration = fallback_duration(base_duration_s, depart_dt.hour)
             model_version = "fallback_v1"
         else:
-            features = np.array([[base_duration_s, distance_m, hour, day_of_week]], dtype=float)
+            features = np.array([feature_vector(feature_payload)], dtype=float)
             predicted = float(model.predict(features)[0])
             duration = max(1.0, predicted)
+
+        std_s, p90, _ = self._uncertainty(db, model_version, duration)
+        lower = max(1.0, duration - p90)
+        upper = duration + p90
 
         if od_cache_id > 0:
             row = PredictionCache(
@@ -132,21 +264,31 @@ class MLPredictionEngine:
             db.commit()
             self.cache.set(self._key(od_cache_id, model_version), {"duration_s": duration}, ttl_seconds=24 * 3600)
 
-        self._log_prediction(
-            db,
-            model_version=model_version,
-            origin_lat=origin_lat,
-            origin_lon=origin_lon,
-            dest_lat=dest_lat,
-            dest_lon=dest_lon,
-            base_duration_s=base_duration_s,
-            predicted_duration_s=duration,
-            distance_m=distance_m,
-            depart_dt=depart_dt,
-            source="inference",
-        )
+        if log_prediction:
+            self._log_prediction(
+                db,
+                model_version=model_version,
+                origin_lat=origin_lat,
+                origin_lon=origin_lon,
+                dest_lat=dest_lat,
+                dest_lon=dest_lon,
+                feature_payload=feature_payload,
+                predicted_duration_s=duration,
+                base_duration_s=base_duration_s,
+                depart_dt=depart_dt,
+                source="inference",
+                strategy=strategy,
+                uncertainty={"lower_s": lower, "upper_s": upper, "std_s": std_s},
+            )
 
-        return PredictionResult(duration_s=duration, model_version=model_version)
+        return PredictionResult(
+            duration_s=duration,
+            model_version=model_version,
+            lower_s=lower,
+            upper_s=upper,
+            std_s=std_s,
+            strategy=strategy,
+        )
 
     def _log_prediction(
         self,
@@ -157,11 +299,13 @@ class MLPredictionEngine:
         origin_lon: float | None,
         dest_lat: float | None,
         dest_lon: float | None,
-        base_duration_s: float,
+        feature_payload: dict[str, Any],
         predicted_duration_s: float,
-        distance_m: float,
+        base_duration_s: float,
         depart_dt: datetime,
         source: str,
+        strategy: PredictionStrategy,
+        uncertainty: dict[str, float],
     ) -> None:
         if None in {origin_lat, origin_lon, dest_lat, dest_lon}:
             return
@@ -172,14 +316,7 @@ class MLPredictionEngine:
             origin_lon=float(origin_lon),
             dest_lat=float(dest_lat),
             dest_lon=float(dest_lon),
-            features_json=json.dumps(
-                {
-                    "base_duration_s": base_duration_s,
-                    "distance_m": distance_m,
-                    "hour": depart_dt.hour,
-                    "day_of_week": depart_dt.weekday(),
-                }
-            ),
+            features_json=json.dumps(feature_payload),
             predicted_duration_s=float(predicted_duration_s),
             base_duration_s=float(base_duration_s),
             request_context_json=json.dumps(
@@ -188,23 +325,13 @@ class MLPredictionEngine:
                     "day_of_week": depart_dt.weekday(),
                     "depart_bucket": depart_dt.strftime("%H:%M"),
                     "source": source,
+                    "strategy": strategy,
+                    **uncertainty,
                 }
             ),
         )
         db.add(row)
         db.commit()
-
-    @staticmethod
-    def _fallback_duration(base_duration_s: float, hour: int) -> float:
-        if 7 <= hour <= 9:
-            peak_factor = 0.25
-        elif 17 <= hour <= 20:
-            peak_factor = 0.28
-        elif 10 <= hour <= 16:
-            peak_factor = 0.12
-        else:
-            peak_factor = 0.05
-        return max(1.0, base_duration_s * (1 + peak_factor))
 
 
 _engine: MLPredictionEngine | None = None
@@ -215,3 +342,4 @@ def get_ml_engine() -> MLPredictionEngine:
     if _engine is None:
         _engine = MLPredictionEngine()
     return _engine
+

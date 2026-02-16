@@ -37,6 +37,20 @@ def ensure_schema_compatibility() -> None:
         alter_statements.append("ALTER TABLE stops ADD COLUMN phone VARCHAR(64)")
     if not has_column("stops", "contact_name"):
         alter_statements.append("ALTER TABLE stops ADD COLUMN contact_name VARCHAR(255)")
+    if not has_column("jobs", "progress_pct"):
+        alter_statements.append("ALTER TABLE jobs ADD COLUMN progress_pct INTEGER DEFAULT 0")
+    if not has_column("jobs", "current_step"):
+        alter_statements.append("ALTER TABLE jobs ADD COLUMN current_step VARCHAR(64)")
+    if not has_column("jobs", "error_code"):
+        alter_statements.append("ALTER TABLE jobs ADD COLUMN error_code VARCHAR(128)")
+    if not has_column("jobs", "error_detail"):
+        alter_statements.append("ALTER TABLE jobs ADD COLUMN error_detail TEXT")
+    if not has_column("jobs", "steps_json"):
+        alter_statements.append("ALTER TABLE jobs ADD COLUMN steps_json TEXT")
+    if not has_column("models", "artifact_gcs_uri"):
+        alter_statements.append("ALTER TABLE models ADD COLUMN artifact_gcs_uri TEXT")
+    if not has_column("models", "vertex_model_resource"):
+        alter_statements.append("ALTER TABLE models ADD COLUMN vertex_model_resource TEXT")
 
     if alter_statements:
         with engine.begin() as conn:

@@ -44,7 +44,7 @@ def _scheduler_loop() -> None:
 def start_scheduler() -> None:
     global _thread
     settings = get_settings()
-    if settings.app_env == "test":
+    if settings.app_env in {"test", "prod", "production"}:
         return
     if _thread and _thread.is_alive():
         return
@@ -55,4 +55,3 @@ def start_scheduler() -> None:
 
 def stop_scheduler() -> None:
     _stop.set()
-

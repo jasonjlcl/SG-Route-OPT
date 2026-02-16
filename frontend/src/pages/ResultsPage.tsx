@@ -18,6 +18,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Select } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { useWorkflowContext } from "../components/layout/WorkflowContext";
 import { useJobStatus } from "../hooks/useJobStatus";
 import { checkCoordinate } from "../lib/geo";
@@ -229,6 +230,18 @@ export function ResultsPage() {
     });
   };
 
+  const revertRouteDraft = (route: PlanDetails["routes"][number]) => {
+    const baseOrder = route.stops
+      .filter((stop) => stop.stop_ref !== "DEPOT" && typeof stop.stop_id === "number")
+      .map((stop) => stop.stop_id as number);
+    setDraftOrderByRoute((prev) => ({ ...prev, [route.route_id]: baseOrder }));
+    setPreviewByRoute((prev) => {
+      const next = { ...prev };
+      delete next[route.route_id];
+      return next;
+    });
+  };
+
   const requestResequence = async (routeId: number, apply = false) => {
     if (!plan) return;
     const ordered = draftOrderByRoute[routeId];
@@ -238,10 +251,17 @@ export function ResultsPage() {
         ordered_stop_ids: ordered,
         apply,
       });
-      setPreviewByRoute((prev) => ({ ...prev, [routeId]: result }));
+      if (!apply) {
+        setPreviewByRoute((prev) => ({ ...prev, [routeId]: result }));
+      }
       if (apply) {
         const refreshed = await getPlan(plan.plan_id);
         setPlan(refreshed);
+        setPreviewByRoute((prev) => {
+          const next = { ...prev };
+          delete next[routeId];
+          return next;
+        });
         await refresh();
       }
     } catch (err: any) {
@@ -455,9 +475,14 @@ export function ResultsPage() {
                   <CardContent className="space-y-3">
                     {selectedRoutes.map((route) => {
                       const expanded = openStops[route.route_id] ?? true;
+                      const baseOrder = route.stops
+                        .filter((stop) => stop.stop_ref !== "DEPOT" && typeof stop.stop_id === "number")
+                        .map((stop) => stop.stop_id as number);
                       const draftOrder = draftOrderByRoute[route.route_id] ?? [];
+                      const draftChanged = JSON.stringify(baseOrder) !== JSON.stringify(draftOrder);
                       const stopMap = new Map(route.stops.filter((s) => s.stop_id).map((stop) => [stop.stop_id as number, stop]));
                       const preview = previewByRoute[route.route_id];
+                      const previewStops = Array.isArray(preview?.stops) ? preview.stops : null;
                       return (
                         <div key={route.route_id} className="space-y-2 rounded-xl border p-3">
                           <div className="flex items-center justify-between">
@@ -468,7 +493,10 @@ export function ResultsPage() {
                                   <Button size="sm" variant="outline" onClick={() => void requestResequence(route.route_id, false)}>
                                     Recompute ETAs
                                   </Button>
-                                  <Button size="sm" onClick={() => void requestResequence(route.route_id, true)}>
+                                  <Button size="sm" variant="outline" disabled={!draftChanged && !preview} onClick={() => revertRouteDraft(route)}>
+                                    Revert
+                                  </Button>
+                                  <Button size="sm" disabled={!preview || !draftChanged} onClick={() => void requestResequence(route.route_id, true)}>
                                     Apply changes
                                   </Button>
                                 </>
@@ -484,39 +512,67 @@ export function ResultsPage() {
                           </div>
                           {preview?.violations?.length > 0 && (
                             <div className="rounded-lg border border-warning/40 bg-warning/5 p-2 text-xs">
-                              <p className="font-semibold text-warning">Violations</p>
-                              <ul className="list-disc pl-4">
-                                {preview.violations.map((violation: any, index: number) => (
-                                  <li key={`${route.route_id}-violation-${index}`}>{violation.message}</li>
-                                ))}
-                              </ul>
+                              <p className="mb-2 font-semibold text-warning">Violations</p>
+                              <TooltipProvider>
+                                <div className="flex flex-wrap gap-2">
+                                  {preview.violations.map((violation: any, index: number) => (
+                                    <UiTooltip key={`${route.route_id}-violation-${index}`}>
+                                      <TooltipTrigger asChild>
+                                        <span>
+                                          <Badge variant="warning">{violation.type || "VIOLATION"}</Badge>
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>{violation.message}</TooltipContent>
+                                    </UiTooltip>
+                                  ))}
+                                </div>
+                              </TooltipProvider>
                             </div>
                           )}
                           {expanded && (
                             <div className="space-y-2">
                               {editMode && activeVehicle !== "all" ? (
-                                <DndContext
-                                  sensors={sensors}
-                                  collisionDetection={closestCenter}
-                                  onDragEnd={(event) => onDragEnd(route.route_id, Number(event.active.id), event.over ? Number(event.over.id) : undefined)}
-                                >
-                                  <SortableContext items={draftOrder} strategy={verticalListSortingStrategy}>
-                                    <div className="space-y-2">
-                                      {draftOrder.map((stopId, idx) => {
-                                        const stop = stopMap.get(stopId);
-                                        if (!stop) return null;
-                                        return (
-                                          <SortableStopRow
-                                            key={`sortable-${route.route_id}-${stopId}`}
-                                            id={stopId}
-                                            label={`${idx + 1}. ${stop.stop_ref}`}
-                                            subtitle={`${stop.address} | ETA ${toTime(stop.eta_iso)}`}
-                                          />
-                                        );
-                                      })}
+                                <div className="space-y-3">
+                                  <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCenter}
+                                    onDragEnd={(event) => onDragEnd(route.route_id, Number(event.active.id), event.over ? Number(event.over.id) : undefined)}
+                                  >
+                                    <SortableContext items={draftOrder} strategy={verticalListSortingStrategy}>
+                                      <div className="space-y-2">
+                                        {draftOrder.map((stopId, idx) => {
+                                          const stop = stopMap.get(stopId);
+                                          if (!stop) return null;
+                                          return (
+                                            <SortableStopRow
+                                              key={`sortable-${route.route_id}-${stopId}`}
+                                              id={stopId}
+                                              label={`${idx + 1}. ${stop.stop_ref}`}
+                                              subtitle={`${stop.address} | ETA ${toTime(stop.eta_iso)}`}
+                                            />
+                                          );
+                                        })}
+                                      </div>
+                                    </SortableContext>
+                                  </DndContext>
+                                  {previewStops && (
+                                    <div className="space-y-2 rounded-lg border bg-muted/20 p-2">
+                                      <p className="text-xs font-semibold text-muted-foreground">ETA Preview (not persisted yet)</p>
+                                      {previewStops.map((stop: any) => (
+                                        <StopCard
+                                          key={`preview-${route.route_id}-${stop.sequence_idx}-${stop.stop_id ?? "depot"}`}
+                                          sequence={stop.sequence_idx}
+                                          stopRef={stop.stop_ref}
+                                          address={stop.address}
+                                          eta={toTime(stop.eta_iso)}
+                                          timeWindow={`${toTime(stop.arrival_window_start_iso)} - ${toTime(stop.arrival_window_end_iso)}`}
+                                          serviceTime={`${toTime(stop.service_start_iso)} - ${toTime(stop.service_end_iso)}`}
+                                          isDepot={stop.stop_ref === "DEPOT"}
+                                        />
+                                      ))}
                                     </div>
-                                  </SortableContext>
-                                </DndContext>
+                                  )}
+                                </div>
                               ) : (
                                 route.stops.map((stop) => (
                                   <StopCard

@@ -95,6 +95,20 @@ class OptimizeRequest(BaseModel):
     solver: SolverConfig = SolverConfig()
 
 
+class OptimizeExperimentRequest(OptimizeRequest):
+    model_version: str | None = None
+
+
+class OptimizeJobRequest(BaseModel):
+    dataset_id: int = Field(gt=0)
+    depot_lat: float = Field(ge=-90, le=90)
+    depot_lon: float = Field(ge=-180, le=180)
+    fleet_config: FleetConfig
+    workday_start: str = "08:00"
+    workday_end: str = "18:00"
+    solver: SolverConfig = SolverConfig()
+
+
 class OptimizeResponse(BaseModel):
     plan_id: int
     feasible: bool
@@ -119,7 +133,12 @@ class JobStatusResponse(BaseModel):
     type: str
     status: str
     progress: int
+    progress_pct: int | None = None
+    current_step: str | None = None
     message: str | None = None
+    error_code: str | None = None
+    error_detail: str | None = None
+    steps: dict[str, Any] | None = None
     result_ref: dict[str, Any] | None = None
     created_at: str
     updated_at: str

@@ -46,6 +46,24 @@ export async function optimizeDataset(datasetId: number, payload: unknown) {
   return data;
 }
 
+export async function startOptimizeJob(payload: {
+  dataset_id: number;
+  depot_lat: number;
+  depot_lon: number;
+  fleet_config: { num_vehicles: number; capacity: number | null };
+  workday_start: string;
+  workday_end: string;
+  solver: { solver_time_limit_s: number; allow_drop_visits: boolean };
+}) {
+  const { data } = await api.post<JobAccepted>("/api/v1/jobs/optimize", payload);
+  return data;
+}
+
+export async function startOptimizeAbTest(datasetId: number, payload: unknown): Promise<JobAccepted> {
+  const { data } = await api.post<JobAccepted>(`/api/v1/datasets/${datasetId}/optimize/ab-test`, payload);
+  return data;
+}
+
 export async function getPlan(planId: number): Promise<PlanDetails> {
   const { data } = await api.get<PlanDetails>(`/api/v1/plans/${planId}`);
   return data;
@@ -130,6 +148,11 @@ export async function getMlModels() {
   return data;
 }
 
+export async function getMlConfig() {
+  const { data } = await api.get("/api/v1/ml/config");
+  return data;
+}
+
 export async function startMlTrain(datasetPath?: string | null): Promise<JobAccepted> {
   const { data } = await api.post<JobAccepted>("/api/v1/ml/models/train", { dataset_path: datasetPath ?? null });
   return data;
@@ -145,6 +168,16 @@ export async function setMlRollout(payload: {
   return data;
 }
 
+export async function setMlConfig(payload: {
+  active_model_version: string;
+  canary_model_version?: string | null;
+  canary_percent?: number;
+  canary_enabled?: boolean;
+}) {
+  const { data } = await api.post("/api/v1/ml/config", payload);
+  return data;
+}
+
 export async function uploadMlActuals(file: File) {
   const form = new FormData();
   form.append("file", file);
@@ -156,5 +189,29 @@ export async function uploadMlActuals(file: File) {
 
 export async function getMlMetricsLatest() {
   const { data } = await api.get("/api/v1/ml/metrics/latest");
+  return data;
+}
+
+export async function runMlDriftReport(triggerRetrain = true) {
+  const { data } = await api.post("/api/v1/ml/drift-report", null, { params: { trigger_retrain: triggerRetrain } });
+  return data;
+}
+
+export async function getMlEvaluationCompare(params?: { days?: number; limit?: number; modelVersion?: string | null }) {
+  const query: Record<string, string | number> = {};
+  if (typeof params?.days === "number") query.days = params.days;
+  if (typeof params?.limit === "number") query.limit = params.limit;
+  if (params?.modelVersion) query.model_version = params.modelVersion;
+  const { data } = await api.get("/api/v1/ml/evaluation/compare", { params: query });
+  return data;
+}
+
+export async function startMlEvaluationReport(payload?: { days?: number; limit?: number; modelVersion?: string | null }): Promise<JobAccepted> {
+  const body = {
+    days: payload?.days ?? 30,
+    limit: payload?.limit ?? 5000,
+    model_version: payload?.modelVersion ?? null,
+  };
+  const { data } = await api.post<JobAccepted>("/api/v1/ml/evaluation/run", body);
   return data;
 }

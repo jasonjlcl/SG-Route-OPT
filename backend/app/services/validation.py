@@ -8,6 +8,7 @@ from typing import Any
 
 import pandas as pd
 
+from app.services.phone import normalize_sg_phone
 from app.utils.errors import AppError
 
 REQUIRED_BASE_COL = "stop_ref"
@@ -144,10 +145,12 @@ def validate_rows(df: pd.DataFrame) -> ValidationResult:
         if tw_start and tw_end and tw_start >= tw_end:
             reasons.append("tw_start must be earlier than tw_end")
 
-        phone = str(row.get("phone") or "").strip()
-        if phone:
-            # Soft validation only: keep value even if format is unusual.
-            _ = "".join(ch for ch in phone if ch.isdigit() or ch == "+")
+        phone_raw = str(row.get("phone") or "").strip()
+        phone = None
+        if phone_raw:
+            phone = normalize_sg_phone(phone_raw)
+            if phone is None:
+                reasons.append("phone must be +65XXXXXXXX or XXXXXXXX")
 
         contact_name = str(row.get("contact_name") or "").strip()
 
