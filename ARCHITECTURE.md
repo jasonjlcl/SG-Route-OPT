@@ -103,92 +103,57 @@ sequenceDiagram
 - Data layer
 - `backend/app/models/entities.py`
 
-## 4) Main Gaps and How to Close Them
+## 4) Gap Closure Status (As Of February 16, 2026)
 
-### Gap A: MLOps lifecycle is minimal
+### A) MLOps lifecycle
 
-What is missing:
-- Model registry and explicit promotion flow (dev/staging/prod)
-- Feedback loop with actual-vs-predicted monitoring
-- Drift detection and scheduled retraining
+Implemented:
+- Model registry and rollout/canary controls
+- Config endpoints:
+  - `GET /api/v1/ml/config`
+  - `POST /api/v1/ml/config`
+  - `POST /api/v1/ml/rollout`
+- Monitoring and drift endpoints:
+  - `GET /api/v1/ml/metrics/latest`
+  - `POST /api/v1/ml/drift-report`
+- Optional Vertex training trigger:
+  - `POST /api/v1/ml/models/train/vertex`
 
-How to implement:
-1. Add DB tables:
-- `model_registry(id, model_version, stage, metrics_json, created_at, promoted_at)`
-- `training_runs(id, model_version, data_window_start, data_window_end, metrics_json, status, created_at)`
-- `prediction_feedback(id, od_cache_id, model_version, predicted_duration_s, actual_duration_s, timestamp)`
-2. Save model metadata in `model_registry` during training (`backend/app/ml/train.py`).
-3. Add feedback ingestion endpoint:
-- `POST /api/v1/ml/feedback`
-4. Add periodic job:
-- Compute MAE/MAPE by hour/day and compare against threshold.
-5. Add retrain command:
-- `python -m app.ml.train --input ... --promote-if-better`
+Remaining hardening:
+- Populate real OneMap secrets in production for non-mock routes.
+- Decide whether scheduler calls must always enforce `SCHEDULER_TOKEN`.
 
-Acceptance criteria:
-- You can see active model version in API response.
-- You can track error metrics over time.
-- Retrain decision is data-driven, not manual guesswork.
+### B) Async jobs and progress streaming
 
-### Gap B: No async jobs and progress streaming
+Implemented:
+- Async optimize pipeline via Cloud Tasks-compatible callbacks:
+  - `POST /api/v1/jobs/optimize`
+  - `POST /tasks/handle`
+- Step orchestration:
+  - `GEOCODE -> BUILD_MATRIX -> OPTIMIZE -> GENERATE_EXPORTS`
+- Job state with progress and step metadata:
+  - `GET /api/v1/jobs/{job_id}`
+  - `GET /api/v1/jobs/{job_id}/events`
+- Cloud callbacks are OIDC-validated and confirmed 2xx for production payload format.
 
-What is missing:
-- Geocoding and optimization are synchronous for longer workloads.
-- UI cannot show true progress percentage and partial logs.
+### C) Interactive route editing
 
-How to implement:
-1. Add job runner:
-- Preferred MVP: `RQ + Redis` (lightweight)
-- Alternative: Celery if you need richer workflows
-2. Add tables:
-- `jobs(id, type, status, progress, started_at, finished_at, payload_json, result_json, error_json)`
-3. Convert long endpoints to async-start:
-- `POST /api/v1/datasets/{id}/geocode/start` returns `job_id`
-- `POST /api/v1/datasets/{id}/optimize/start` returns `job_id`
-4. Add status endpoints:
-- `GET /api/v1/jobs/{job_id}`
-- Optional SSE: `GET /api/v1/jobs/{job_id}/events`
-5. UI polling/SSE:
-- Show progress bar, step label, last error, cancel/retry actions.
+Implemented:
+- Planner-side resequencing preview/revert/apply flow
+- Backend resequencing endpoint:
+  - `POST /api/v1/plans/{plan_id}/routes/{route_id}/resequence`
+- Violation badges/tooltips and timing-impact visibility in Results UI
 
-Acceptance criteria:
-- Large dataset geocoding does not block request thread.
-- Planner sees real-time status and can resume safely after refresh.
+## 5) Suggested Next Delivery Plan
 
-### Gap C: Interactive route editing is not implemented
-
-What is missing:
-- No drag-and-drop reordering of stops in route itinerary.
-- No post-edit constraint revalidation and ETA recalculation endpoint.
-
-How to implement:
-1. Frontend:
-- Add drag-and-drop list per vehicle (for example `@dnd-kit`).
-2. Backend endpoint:
-- `POST /api/v1/plans/{plan_id}/routes/{route_id}/resequence`
-- Payload: ordered `route_stop_ids`.
-3. Validation service:
-- Recompute ETA/timing and flag violations:
-- `time_window_violation`, `workday_violation`, `capacity_violation`.
-4. Result contract:
-- Return updated stop sequence, ETAs, and violation warnings.
-5. UI behavior:
-- Show warning badges and require confirm before exporting invalid plan.
-
-Acceptance criteria:
-- Planner can manually adjust stop order.
-- System immediately shows impact on ETA and constraint health.
-
-## 5) Suggested Delivery Plan
-
-1. Milestone 1 (high impact)
-- Async jobs + progress APIs + frontend progress UI.
+1. Milestone 1
+- Add production OneMap secret values and validate non-mock routing against real credentials.
 2. Milestone 2
-- Route resequencing endpoint + UI drag-drop + revalidation.
+- Decide and enforce scheduler token policy for `/api/v1/ml/drift-report`.
 3. Milestone 3
-- MLOps metadata tables + feedback capture + metrics dashboard endpoint.
+- Add Cloud Run startup/liveness probes and project environment tagging for stronger ops hygiene.
 4. Milestone 4
-- Automated retraining and model promotion workflow.
+- Expand ML feedback ingestion and promotion policy automation.
 
 ## 6) Deployment View (Current Local MVP)
 
@@ -208,3 +173,27 @@ flowchart LR
     Backend --> OneMap
 ```
 
+## 7) Deployment View (Current Cloud Run Production)
+
+```mermaid
+flowchart LR
+    Browser[Browser]
+    Frontend[Frontend App]
+    CloudRun[Cloud Run API]
+    Tasks[Cloud Tasks Queue]
+    Scheduler[Cloud Scheduler]
+    SecretMgr[Secret Manager]
+    GCS[(GCS Bucket)]
+    SQLite[(SQLite in container)]
+    OneMap[OneMap APIs]
+
+    Browser --> Frontend
+    Frontend --> CloudRun
+    CloudRun --> Tasks
+    Tasks --> CloudRun
+    Scheduler --> CloudRun
+    CloudRun --> SecretMgr
+    CloudRun --> GCS
+    CloudRun --> SQLite
+    CloudRun --> OneMap
+```

@@ -80,6 +80,7 @@ Queue/scheduler/security options:
 - `CLOUD_TASKS_QUEUE` (default `route-jobs`)
 - `CLOUD_TASKS_SERVICE_ACCOUNT` (used for OIDC on `/tasks/handle`)
 - `CLOUD_TASKS_AUDIENCE` (optional, defaults to `${APP_BASE_URL}/tasks/handle`)
+- `API_SERVICE_ACCOUNT_EMAIL` (service account email used for IAM signed URL fallback in Cloud Run)
 - `TASKS_AUTH_REQUIRED` (default `true`)
 - `SCHEDULER_TOKEN` (optional shared secret for `/api/v1/ml/drift-report`)
 
@@ -148,6 +149,8 @@ Guardrails baked in:
 - Cloud Run `min-instances=0`, `max-instances=1`
 - Cloud Tasks queue throttled (`max-concurrent-dispatches=1`)
 - Weekly Cloud Scheduler trigger for `/api/v1/ml/drift-report`
+- Cloud Tasks OIDC callback path validated with production payload format (`/tasks/handle` 2xx)
+- Signed URL generation for export artifacts hardened for Cloud Run service-account credentials
 
 ## Workflow Usage (Planner)
 

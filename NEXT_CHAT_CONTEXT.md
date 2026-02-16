@@ -1,12 +1,15 @@
 # Next Chat Context (SG-Route-OPT)
 
-## Current Snapshot
+## Current Snapshot (As Of February 16, 2026)
 - Repo: `c:\Users\User\OneDrive\Documents\FYP Documents\SG-Route-OPT`
 - Branch: `main` (tracking `origin/main`)
-- Latest pushed commits:
-  - `9feb1b7` - major async pipeline/MLOps/UI/infra integration
-  - `9df01b2` - Cloud Run startup + deploy script hardening
-- Remote: `origin/main` contains both commits
+- Remote: `origin` -> `https://github.com/jasonjlcl/SG-Route-OPT.git`
+- Latest pushed cloud-fix commits:
+  - `fa5b46e` - fix `/api/v1/health` response validation failure
+  - `1559d0a` - cloud signing/deploy env hardening
+  - `a58638b` - Cloud Tasks OIDC act-as IAM + fallback logging
+  - `1341d23` - scoped token for IAM signed URLs
+  - `1a18553` - explicit API service account email for signing fallback
 
 ## What Is Implemented
 - Async optimize pipeline:
@@ -28,77 +31,65 @@
   - Driver call action is `tel:` only
 - Export:
   - Static map + driver PDF flow integrated
+  - GCS upload + signed URL generation in Cloud Run via IAM fallback
 - GCP scripts:
   - `infra/gcp/deploy.sh`
   - `infra/gcp/teardown.sh`
 
-## Key Fixes Added During Validation
-- `backend/app/services/job_pipeline.py`:
-  - SQLite lock tolerance for progress updates in local/test mode.
-- `backend/app/services/ml_ops.py`:
-  - Model version now uses microseconds (`v%Y%m%d%H%M%S%f`) to prevent collisions.
-- `backend/requirements.txt`:
-  - `google-cloud-tasks==2.21.0`
-  - `google-cloud-aiplatform==1.130.0`
-- `backend/Dockerfile`:
-  - Uses `${PORT}` and removes `--reload` for Cloud Run compatibility.
-- `infra/gcp/deploy.sh`:
-  - Conditional secret bindings
-  - `gcloud storage` bucket ops
-  - Windows/Git-Bash-safe adjustments
-  - Temp root `Dockerfile` handling for Cloud Build context
-  - glob-safe scheduler command handling (`set -f`)
+## Cloud Hardening Added
+- Health endpoint fix:
+  - `backend/app/api/health.py` response type corrected to prevent `ResponseValidationError` 500.
+- Deploy script fixes:
+  - `infra/gcp/deploy.sh` uses `--update-env-vars` (prevents wiping runtime env vars).
+  - Added IAM bindings for:
+    - `roles/iam.serviceAccountTokenCreator` on API SA
+    - `roles/iam.serviceAccountUser` on Tasks SA for API SA
+  - Added `API_SERVICE_ACCOUNT_EMAIL` env var injection.
+- Cloud Tasks robustness:
+  - `backend/app/services/cloud_tasks.py` now logs enqueue fallback reason.
+- Signed URL robustness:
+  - `backend/app/services/storage.py` falls back to IAM signing with scoped credentials.
+  - Uses configured `API_SERVICE_ACCOUNT_EMAIL` when metadata credential email is `default`.
 
 ## Local Validation Status
-- Backend tests: `py -m pytest -q backend/app/tests` => pass (`19 passed`)
-- Frontend tests/build: pass
-- Smoke flow validated:
-  - Upload -> geocode -> optimize via jobs API
-  - Step progression and monotonic progress
-  - Resequence preview/apply/revert
-  - Phone visibility logic
-  - Map PNG and PDF generation
-  - ML model listing + canary config endpoints
+- Backend tests: `.\.venv\Scripts\python.exe -m pytest -q backend/app/tests` => pass (`21 passed`)
+- Frontend tests/build: previously validated pass
 
 ## Cloud Deployment Status (Live)
-Project: `gen-lang-client-0328386378`
-Region: `asia-southeast1`
-Service: `sg-route-opt-api`
-URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`
-Queue: `routeapp-queue`
-Scheduler job: `route-ml-drift-weekly`
+Project: `gen-lang-client-0328386378`  
+Region: `asia-southeast1`  
+Service: `sg-route-opt-api`  
+URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`  
+Queue: `routeapp-queue`  
+Scheduler job: `route-ml-drift-weekly`  
+Latest revision: `sg-route-opt-api-00015-njj`
 
 ### Confirmed
-- Cloud Run deployed and serving traffic.
+- `GET /api/v1/health` => `200` with `env=prod`
 - Cloud Run scaling:
   - `maxScale=1`
   - `minScale` unset (effective `0`)
 - Cloud Tasks queue throttling:
   - `maxConcurrentDispatches=1`
   - `maxDispatchesPerSecond=1`
-- Scheduler weekly job exists with OIDC service account.
-- `/tasks/handle` enforces auth:
-  - unauthenticated request returned `401`
-  - Cloud Tasks requests reached endpoint with `Google-Cloud-Tasks` user-agent
-
-### Observed in logs
-- `/tasks/handle` from test tasks currently returned `422` (payload/content mismatch in manual probe), but auth path is active.
-- `/api/v1/health` currently returns `500` in deployed env and needs investigation from logs/DB/runtime config.
+- Scheduler weekly job exists with OIDC service account
+- `/tasks/handle` auth path active:
+  - unauthenticated manual request => `401`
+  - production-format Cloud Tasks callbacks => `200` (Google-Cloud-Tasks user-agent)
+- Real optimize job validated end-to-end:
+  - reached `SUCCEEDED`
+  - exports generated
+  - map/PDF signed URLs present
 
 ## Secret Manager State
-- `MAPS_STATIC_API_KEY` has versions created.
-- `ONEMAP_EMAIL` and `ONEMAP_PASSWORD` secrets were created, but no value versions were added in this session.
-  - Add values if real OneMap calls are required.
+- `MAPS_STATIC_API_KEY`: versions exist
+- `ONEMAP_EMAIL`: secret exists, versions count = `0`
+- `ONEMAP_PASSWORD`: secret exists, versions count = `0`
 
-## Open Follow-ups for Next Chat
-1. Investigate and fix Cloud Run `/api/v1/health` returning `500`.
-2. Add `ONEMAP_EMAIL` + `ONEMAP_PASSWORD` secret versions (if not using mock behavior).
-3. Validate a real optimize job through deployed service URL:
-   - upload dataset
-   - trigger `/api/v1/jobs/optimize`
-   - confirm full step completion and export artifacts
-4. Validate Cloud Tasks callback end-to-end with production payload format (expect 2xx, not 422).
-5. Optional: set `SCHEDULER_TOKEN` and decide whether drift endpoint should enforce it in prod scheduler calls.
+## Open Follow-ups
+1. Add `ONEMAP_EMAIL` + `ONEMAP_PASSWORD` secret versions if real OneMap calls are required.
+2. Decide whether to enforce `SCHEDULER_TOKEN` in production scheduler calls.
+3. Optional platform hygiene: add GCP project `environment` tag (warning currently shown by gcloud).
 
 ## Working Tree Note
 - Local uncommitted generated file: `frontend/tsconfig.tsbuildinfo`.
