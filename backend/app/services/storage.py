@@ -8,6 +8,7 @@ from typing import Any
 from app.utils.settings import get_settings
 
 try:
+    import google.auth
     from google.cloud import storage
     from google.auth.transport.requests import Request
 
@@ -79,6 +80,16 @@ def signed_download_url(*, object_path: str) -> str | None:
             # Cloud Run commonly uses token-based credentials without a local private key.
             # Retry with IAM signing parameters (service account email + access token).
             credentials = getattr(client, "_credentials", None)
+            if credentials is not None and hasattr(credentials, "with_scopes"):
+                try:
+                    credentials = credentials.with_scopes(["https://www.googleapis.com/auth/cloud-platform"])
+                except Exception:  # noqa: BLE001
+                    pass
+            if credentials is None:
+                try:
+                    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+                except Exception:  # noqa: BLE001
+                    credentials = None
             service_account_email = getattr(credentials, "service_account_email", None)
             token = getattr(credentials, "token", None)
             if credentials is not None and not token:
