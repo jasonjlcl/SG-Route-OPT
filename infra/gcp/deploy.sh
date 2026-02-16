@@ -58,6 +58,9 @@ echo "==> Binding IAM roles (least-privilege baseline)"
 "${GCLOUD_BIN}" projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
   --member="serviceAccount:${API_SA_EMAIL}" \
   --role="roles/aiplatform.user" >/dev/null
+"${GCLOUD_BIN}" iam service-accounts add-iam-policy-binding "${API_SA_EMAIL}" \
+  --member="serviceAccount:${API_SA_EMAIL}" \
+  --role="roles/iam.serviceAccountTokenCreator" >/dev/null
 "${GCLOUD_BIN}" storage buckets add-iam-policy-binding "${GCS_BUCKET}" \
   --member="serviceAccount:${API_SA_EMAIL}" \
   --role="roles/storage.objectAdmin" >/dev/null
@@ -115,7 +118,7 @@ DRIFT_URL="${SERVICE_URL}/api/v1/ml/drift-report"
 echo "==> Updating Cloud Run runtime URLs"
 "${GCLOUD_BIN}" run services update "${SERVICE_NAME}" \
   --region="${GCP_REGION}" \
-  --set-env-vars="APP_BASE_URL=${SERVICE_URL},CLOUD_TASKS_AUDIENCE=${TASKS_AUDIENCE},SCHEDULER_TOKEN=${SCHEDULER_TOKEN}" >/dev/null
+  --update-env-vars="APP_BASE_URL=${SERVICE_URL},CLOUD_TASKS_AUDIENCE=${TASKS_AUDIENCE},SCHEDULER_TOKEN=${SCHEDULER_TOKEN}" >/dev/null
 
 echo "==> Creating/updating Cloud Tasks queue"
 if ! "${GCLOUD_BIN}" tasks queues describe "${QUEUE_NAME}" --location="${GCP_REGION}" >/dev/null 2>&1; then
