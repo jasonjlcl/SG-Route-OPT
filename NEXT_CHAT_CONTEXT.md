@@ -10,6 +10,7 @@
   - `a58638b` - Cloud Tasks OIDC act-as IAM + fallback logging
   - `1341d23` - scoped token for IAM signed URLs
   - `1a18553` - explicit API service account email for signing fallback
+  - `a5e235c` - app-wide developer credit footer
 
 ## What Is Implemented
 - Async optimize pipeline:
@@ -62,7 +63,7 @@ Service: `sg-route-opt-api`
 URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`  
 Queue: `routeapp-queue`  
 Scheduler job: `route-ml-drift-weekly`  
-Latest revision: `sg-route-opt-api-00015-njj`
+Latest revision: `sg-route-opt-api-00021-cgm`
 
 ### Confirmed
 - `GET /api/v1/health` => `200` with `env=prod`
@@ -73,6 +74,7 @@ Latest revision: `sg-route-opt-api-00015-njj`
   - `maxConcurrentDispatches=1`
   - `maxDispatchesPerSecond=1`
 - Scheduler weekly job exists with OIDC service account
+- Scheduler token enforcement is active on `/api/v1/ml/drift-report` (manual scheduler run returns `200`)
 - `/tasks/handle` auth path active:
   - unauthenticated manual request => `401`
   - production-format Cloud Tasks callbacks => `200` (Google-Cloud-Tasks user-agent)
@@ -80,16 +82,20 @@ Latest revision: `sg-route-opt-api-00015-njj`
   - reached `SUCCEEDED`
   - exports generated
   - map/PDF signed URLs present
+- Monitoring policy enabled:
+  - `projects/gen-lang-client-0328386378/alertPolicies/4637109870947199083`
+  - Trigger: Cloud Run 5xx error rate > 5% for 5 minutes
 
 ## Secret Manager State
 - `MAPS_STATIC_API_KEY`: versions exist
-- `ONEMAP_EMAIL`: secret exists, versions count = `0`
-- `ONEMAP_PASSWORD`: secret exists, versions count = `0`
+- `ONEMAP_EMAIL`: secret exists, versions count = `1`
+- `ONEMAP_PASSWORD`: secret exists, versions count = `1`
+- `scheduler_token`: secret exists, latest version bound to Cloud Run + Scheduler header
 
 ## Open Follow-ups
-1. Add `ONEMAP_EMAIL` + `ONEMAP_PASSWORD` secret versions if real OneMap calls are required.
-2. Decide whether to enforce `SCHEDULER_TOKEN` in production scheduler calls.
-3. Optional platform hygiene: add GCP project `environment` tag (warning currently shown by gcloud).
+1. Optional platform hygiene: add GCP project `environment` tag once org-level IAM is available (`resourcemanager.tagKeys.create` and `resourcemanager.tagValueBindings.create`).
+2. Optional security hygiene: rotate OneMap credentials after sharing and add new `ONEMAP_PASSWORD` secret version.
+3. Optional alerting enhancement: add notification channels (email/Slack/PagerDuty) to alert policy.
 
 ## Working Tree Note
-- Local uncommitted generated file: `frontend/tsconfig.tsbuildinfo`.
+- Keep generated file `frontend/tsconfig.tsbuildinfo` out of commits.

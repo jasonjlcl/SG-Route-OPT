@@ -4,6 +4,17 @@ Local full-stack MVP for upload -> validate -> geocode -> optimize VRPTW -> inte
 
 Architecture diagrams and gap-closure roadmap: `ARCHITECTURE.md`
 
+## About Project
+
+SG Route Optimization is an end-to-end logistics planning system focused on Singapore route operations. The project combines operational planning workflows (upload, validation, geocoding, optimization, and execution-ready exports) with practical MLOps controls so planners can run, monitor, and continuously improve route quality from one web app.
+
+Core outcomes:
+
+- Reduce manual route planning effort with VRPTW optimization.
+- Keep planner control through resequencing and constraint visibility.
+- Generate driver-ready artifacts (PDF + map) from the same planning flow.
+- Support production cloud deployment with async jobs, queue auth, and monitoring.
+
 ## Modern UI/UX Layer
 
 The frontend now uses a product-style shell with:
@@ -151,6 +162,32 @@ Guardrails baked in:
 - Weekly Cloud Scheduler trigger for `/api/v1/ml/drift-report`
 - Cloud Tasks OIDC callback path validated with production payload format (`/tasks/handle` 2xx)
 - Signed URL generation for export artifacts hardened for Cloud Run service-account credentials
+
+Monitoring/alerting:
+
+- Policy file: `infra/gcp/monitoring/cloud_run_sg_route_opt_5xx_error_rate_policy.json`
+- Active policy: `Cloud Run sg-route-opt-api - 5xx Error Rate > 5%`
+- Created as: `projects/gen-lang-client-0328386378/alertPolicies/4637109870947199083`
+
+## Current Production Snapshot (February 16, 2026)
+
+- Project: `gen-lang-client-0328386378`
+- Region: `asia-southeast1`
+- Cloud Run service: `sg-route-opt-api`
+- URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`
+- Latest revision: `sg-route-opt-api-00021-cgm`
+- Queue: `routeapp-queue`
+- Scheduler job: `route-ml-drift-weekly`
+- Health endpoint: `GET /api/v1/health` returns `200` with `env=prod`
+- OneMap secrets are now provisioned in Secret Manager:
+  - `ONEMAP_EMAIL` (version `1`)
+  - `ONEMAP_PASSWORD` (version `1`)
+
+## Operations Notes
+
+- GCP Resource Manager tag binding (`environment`) requires org-level IAM permissions (`resourcemanager.tagKeys.create` and `resourcemanager.tagValueBindings.create`).
+- If you want to enforce org tags from this project, run it using an org admin account or pre-create the tag key/value centrally, then bind it to:
+  - `//cloudresourcemanager.googleapis.com/projects/858316205970`
 
 ## Workflow Usage (Planner)
 
