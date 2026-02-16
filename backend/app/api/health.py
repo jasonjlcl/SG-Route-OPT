@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter
 
 from app.services.ml_ops import latest_monitoring_snapshot
@@ -8,7 +10,7 @@ router = APIRouter(prefix="/api/v1", tags=["health"])
 
 
 @router.get("/health")
-def health() -> dict[str, str]:
+def health() -> dict[str, Any]:
     settings = get_settings()
     monitoring = {}
     db = SessionLocal()
