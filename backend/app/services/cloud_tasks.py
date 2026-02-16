@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -14,6 +15,8 @@ try:
     CLOUD_TASKS_AVAILABLE = True
 except Exception:  # noqa: BLE001
     CLOUD_TASKS_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 def cloud_tasks_enabled() -> bool:
@@ -70,6 +73,7 @@ def enqueue_step_task(*, job_id: str, step: str, delay_seconds: int = 0) -> None
 
     try:
         client.create_task(parent=queue_path, task=task)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Cloud Tasks enqueue failed for %s/%s; falling back inline: %s", job_id, step, exc)
         thread = threading.Thread(target=_inline_dispatch, args=(payload,), daemon=True)
         thread.start()

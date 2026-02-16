@@ -61,6 +61,9 @@ echo "==> Binding IAM roles (least-privilege baseline)"
 "${GCLOUD_BIN}" iam service-accounts add-iam-policy-binding "${API_SA_EMAIL}" \
   --member="serviceAccount:${API_SA_EMAIL}" \
   --role="roles/iam.serviceAccountTokenCreator" >/dev/null
+"${GCLOUD_BIN}" iam service-accounts add-iam-policy-binding "${TASKS_SA_EMAIL}" \
+  --member="serviceAccount:${API_SA_EMAIL}" \
+  --role="roles/iam.serviceAccountUser" >/dev/null
 "${GCLOUD_BIN}" storage buckets add-iam-policy-binding "${GCS_BUCKET}" \
   --member="serviceAccount:${API_SA_EMAIL}" \
   --role="roles/storage.objectAdmin" >/dev/null
