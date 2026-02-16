@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     cloud_tasks_service_account: str | None = Field(default=None, alias="CLOUD_TASKS_SERVICE_ACCOUNT")
     tasks_auth_required: bool = Field(default=True, alias="TASKS_AUTH_REQUIRED")
     cloud_tasks_audience: str | None = Field(default=None, alias="CLOUD_TASKS_AUDIENCE")
+    api_service_account_email: str | None = Field(default=None, alias="API_SERVICE_ACCOUNT_EMAIL")
 
     scheduler_token: str | None = Field(default=None, alias="SCHEDULER_TOKEN")
     signed_url_ttl_seconds: int = Field(default=3600, alias="SIGNED_URL_TTL_SECONDS")

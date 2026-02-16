@@ -91,6 +91,8 @@ def signed_download_url(*, object_path: str) -> str | None:
                 except Exception:  # noqa: BLE001
                     credentials = None
             service_account_email = getattr(credentials, "service_account_email", None)
+            if not service_account_email or str(service_account_email).strip().lower() == "default":
+                service_account_email = get_settings().api_service_account_email
             token = getattr(credentials, "token", None)
             if credentials is not None and not token:
                 try:
