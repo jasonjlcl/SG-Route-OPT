@@ -11,7 +11,7 @@ import pandas as pd
 from app.utils.errors import AppError
 
 REQUIRED_BASE_COL = "stop_ref"
-OPTIONAL_COLS = ["address", "postal_code", "demand", "service_time_min", "tw_start", "tw_end"]
+OPTIONAL_COLS = ["address", "postal_code", "demand", "service_time_min", "tw_start", "tw_end", "phone", "contact_name"]
 ALL_COLS = [REQUIRED_BASE_COL] + OPTIONAL_COLS
 
 
@@ -144,6 +144,13 @@ def validate_rows(df: pd.DataFrame) -> ValidationResult:
         if tw_start and tw_end and tw_start >= tw_end:
             reasons.append("tw_start must be earlier than tw_end")
 
+        phone = str(row.get("phone") or "").strip()
+        if phone:
+            # Soft validation only: keep value even if format is unusual.
+            _ = "".join(ch for ch in phone if ch.isdigit() or ch == "+")
+
+        contact_name = str(row.get("contact_name") or "").strip()
+
         if reasons:
             invalid_rows.append(ValidationIssue(row_index=row_idx, reason="; ".join(reasons)))
             continue
@@ -157,6 +164,8 @@ def validate_rows(df: pd.DataFrame) -> ValidationResult:
                 "service_time_min": service_time_min,
                 "tw_start": tw_start,
                 "tw_end": tw_end,
+                "phone": phone or None,
+                "contact_name": contact_name or None,
             }
         )
 

@@ -19,6 +19,8 @@ export function ValidationPage() {
       pending: Number(counts.PENDING || 0),
     };
   }, [dataset]);
+  const canContinueToGeocoding =
+    (dataset?.validation_state === "VALID" || dataset?.validation_state === "PARTIAL") && Number(dataset?.valid_stop_count || 0) > 0;
 
   if (!datasetId) {
     return <EmptyState title="No dataset yet" description="Upload a CSV or XLSX file first to run validation." actionLabel="Go to Upload" onAction={() => (window.location.href = "/upload")} />;
@@ -42,8 +44,18 @@ export function ValidationPage() {
               <p className="truncate text-sm font-medium">{dataset?.filename || "--"}</p>
             </div>
             <div className="rounded-lg border bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground">Dataset status</p>
-              <Badge variant={String(dataset?.status || "").includes("FAILED") ? "danger" : "success"}>{dataset?.status || "Unknown"}</Badge>
+              <p className="text-xs text-muted-foreground">Validation state</p>
+              <Badge
+                variant={
+                  dataset?.validation_state === "VALID" || dataset?.validation_state === "PARTIAL"
+                    ? "success"
+                    : dataset?.validation_state === "BLOCKED"
+                      ? "danger"
+                      : "warning"
+                }
+              >
+                {dataset?.validation_state || "NOT_STARTED"}
+              </Badge>
             </div>
           </div>
 
@@ -63,7 +75,9 @@ export function ValidationPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button onClick={() => navigate("/geocoding")}>Continue to Geocoding</Button>
+            <Button onClick={() => navigate("/geocoding")} disabled={!canContinueToGeocoding}>
+              Continue to Geocoding
+            </Button>
             <Button variant="outline" onClick={() => navigate("/upload")}>Upload another file</Button>
           </div>
         </CardContent>

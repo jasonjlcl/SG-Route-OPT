@@ -256,6 +256,7 @@
             <th>ETA</th>
             <th>Time Window</th>
             <th>Address</th>
+            <th>Contact</th>
             <th>Service Time</th>
             <th>Service Window</th>
             <th>Drive to Next</th>
@@ -269,6 +270,7 @@
             <td>{{ row.eta }}</td>
             <td>{{ row.time_window }}</td>
             <td>{{ row.stop_ref }} - {{ row.address }}</td>
+            <td>{% if row.phone or row.contact_name %}{{ row.contact_name or "" }} {% if row.phone %}({{ row.phone }}){% endif %}{% else %}-{% endif %}</td>
             <td>{{ row.service_time }}</td>
             <td>{{ row.service_window }}</td>
             <td>{{ row.drive_to_next }}</td>

@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     onemap_auth_url: str = Field(default="https://www.onemap.gov.sg/api/auth/post/getToken", alias="ONEMAP_AUTH_URL")
     onemap_search_url: str = Field(default="https://www.onemap.gov.sg/api/common/elastic/search", alias="ONEMAP_SEARCH_URL")
     onemap_routing_url: str = Field(default="https://www.onemap.gov.sg/api/public/routingsvc/route", alias="ONEMAP_ROUTING_URL")
+    app_base_url: str = Field(default="http://localhost:8000", alias="APP_BASE_URL")
+    frontend_base_url: str = Field(default="http://localhost:5173", alias="FRONTEND_BASE_URL")
+    jobs_force_inline: bool = Field(default=False, alias="JOBS_FORCE_INLINE")
+
+    ml_drift_threshold: float = Field(default=0.2, alias="ML_DRIFT_THRESHOLD")
+    ml_retrain_min_rows: int = Field(default=200, alias="ML_RETRAIN_MIN_ROWS")
+    ml_canary_seed: int = Field(default=42, alias="ML_CANARY_SEED")
 
     @property
     def cors_origins(self) -> list[str]:

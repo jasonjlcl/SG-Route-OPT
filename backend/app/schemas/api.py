@@ -28,7 +28,13 @@ class DatasetSummaryResponse(BaseModel):
     created_at: str
     status: str
     stop_count: int
+    valid_stop_count: int
     geocode_counts: dict[str, int]
+    validation_state: Literal["NOT_STARTED", "BLOCKED", "PARTIAL", "VALID"]
+    geocode_state: Literal["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "NEEDS_ATTENTION"]
+    optimize_state: Literal["NOT_STARTED", "RUNNING", "COMPLETE", "NEEDS_ATTENTION"]
+    latest_plan_id: int | None = None
+    latest_plan_status: str | None = None
 
 
 class StopOut(BaseModel):
@@ -42,6 +48,8 @@ class StopOut(BaseModel):
     service_time_min: int
     tw_start: str | None
     tw_end: str | None
+    phone: str | None = None
+    contact_name: str | None = None
     geocode_status: str
     geocode_meta: str | None
 
@@ -56,8 +64,8 @@ class StopsPageResponse(BaseModel):
 class ManualGeocodeRequest(BaseModel):
     corrected_address: str | None = None
     corrected_postal_code: str | None = None
-    lat: float | None = None
-    lon: float | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
 
     @model_validator(mode="after")
     def ensure_payload(self) -> "ManualGeocodeRequest":
@@ -79,8 +87,8 @@ class SolverConfig(BaseModel):
 
 
 class OptimizeRequest(BaseModel):
-    depot_lat: float
-    depot_lon: float
+    depot_lat: float = Field(ge=-90, le=90)
+    depot_lon: float = Field(ge=-180, le=180)
     fleet: FleetConfig
     workday_start: str = "08:00"
     workday_end: str = "18:00"
@@ -92,10 +100,35 @@ class OptimizeResponse(BaseModel):
     feasible: bool
     status: str | None = None
     objective_value: float | None = None
+    total_makespan_s: float | None = None
+    sum_vehicle_durations_s: float | None = None
     route_summary: list[dict[str, Any]] | None = None
     unserved_stop_ids: list[int] | None = None
     infeasibility_reason: str | None = None
     suggestions: list[str] | None = None
+
+
+class JobAcceptedResponse(BaseModel):
+    job_id: str
+    status: str = "QUEUED"
+    type: str
+
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    type: str
+    status: str
+    progress: int
+    message: str | None = None
+    result_ref: dict[str, Any] | None = None
+    created_at: str
+    updated_at: str
+
+
+class ResequenceRequest(BaseModel):
+    ordered_stop_ids: list[int]
+    depart_time_iso: str | None = None
+    apply: bool = False
 
 
 class PlanDetailsResponse(BaseModel):
@@ -103,6 +136,8 @@ class PlanDetailsResponse(BaseModel):
     dataset_id: int
     status: str
     objective_value: float
+    total_makespan_s: float | None = None
+    sum_vehicle_durations_s: float
     infeasibility_reason: str | None
     depot: dict[str, float]
     routes: list[dict[str, Any]]

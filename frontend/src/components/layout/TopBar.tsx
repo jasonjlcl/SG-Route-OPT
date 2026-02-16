@@ -1,4 +1,5 @@
 import { Download, RefreshCcw } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { getExportUrl } from "../../api";
 import { Badge } from "../ui/badge";
@@ -23,6 +24,9 @@ export function TopBar({ datasetId, planId, datasetStatus, onDatasetChange, onRe
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link to="/ml" className="text-sm text-primary underline-offset-2 hover:underline">
+            ML Settings
+          </Link>
           <div className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1">
             <span className="text-xs text-muted-foreground">Dataset</span>
             <Input

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -33,6 +33,8 @@ class Stop(Base):
     service_time_min: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     tw_start: Mapped[str | None] = mapped_column(String(5), nullable=True)
     tw_end: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     lon: Mapped[float | None] = mapped_column(Float, nullable=True)
     geocode_status: Mapped[str] = mapped_column(String(32), default="PENDING", nullable=False, index=True)
@@ -80,8 +82,13 @@ class Plan(Base):
     depot_lon: Mapped[float] = mapped_column(Float, nullable=False)
     num_vehicles: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="CREATED")
     objective_value: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    total_makespan_s: Mapped[float | None] = mapped_column(Float, nullable=True)
+    vehicle_capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    workday_start: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    workday_end: Mapped[str | None] = mapped_column(String(5), nullable=True)
     infeasibility_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     dataset: Mapped[Dataset] = relationship("Dataset", back_populates="plans")
@@ -128,3 +135,84 @@ class ErrorLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     dataset: Mapped[Dataset | None] = relationship("Dataset", back_populates="error_logs")
+
+
+class Job(Base):
+    __tablename__ = "jobs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, index=True)
+    type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="QUEUED", index=True)
+    progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    result_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class MLModel(Base):
+    __tablename__ = "models"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    version: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    artifact_path: Mapped[str] = mapped_column(Text, nullable=False)
+    feature_schema_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    training_data_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metrics_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="TRAINED", index=True)
+
+
+class ModelRollout(Base):
+    __tablename__ = "model_rollouts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    active_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    canary_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    canary_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class PredictionLog(Base):
+    __tablename__ = "prediction_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    model_version: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    origin_lat: Mapped[float] = mapped_column(Float, nullable=False)
+    origin_lon: Mapped[float] = mapped_column(Float, nullable=False)
+    dest_lat: Mapped[float] = mapped_column(Float, nullable=False)
+    dest_lon: Mapped[float] = mapped_column(Float, nullable=False)
+    features_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    predicted_duration_s: Mapped[float] = mapped_column(Float, nullable=False)
+    base_duration_s: Mapped[float] = mapped_column(Float, nullable=False)
+    request_context_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ActualTravelTime(Base):
+    __tablename__ = "actual_travel_times"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    origin_lat: Mapped[float] = mapped_column(Float, nullable=False)
+    origin_lon: Mapped[float] = mapped_column(Float, nullable=False)
+    dest_lat: Mapped[float] = mapped_column(Float, nullable=False)
+    dest_lon: Mapped[float] = mapped_column(Float, nullable=False)
+    timestamp_iso: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    actual_duration_s: Mapped[float] = mapped_column(Float, nullable=False)
+    route_id: Mapped[int | None] = mapped_column(ForeignKey("routes.id", ondelete="SET NULL"), nullable=True, index=True)
+    stop_id: Mapped[int | None] = mapped_column(ForeignKey("stops.id", ondelete="SET NULL"), nullable=True, index=True)
+
+
+class MLMonitoring(Base):
+    __tablename__ = "ml_monitoring"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    drift_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    mae: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mape: Mapped[float | None] = mapped_column(Float, nullable=True)
+    segmented_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    needs_retrain: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

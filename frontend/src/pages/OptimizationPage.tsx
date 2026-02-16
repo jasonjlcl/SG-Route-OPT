@@ -1,10 +1,11 @@
-import { Clock3, Settings2, Sparkles, Wand2 } from "lucide-react";
-import { useMemo, useState } from "react";
+ï»¿import { Clock3, Settings2, Sparkles, Wand2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { optimizeDataset } from "../api";
 import { useWorkflowContext } from "../components/layout/WorkflowContext";
+import { useJobStatus } from "../hooks/useJobStatus";
 import { EmptyState } from "../components/status/EmptyState";
 import { ErrorState } from "../components/status/ErrorState";
 import { Badge } from "../components/ui/badge";
@@ -19,6 +20,8 @@ type OptimizationResult = {
   feasible: boolean;
   status?: string;
   objective_value?: number;
+  total_makespan_s?: number;
+  sum_vehicle_durations_s?: number;
   route_summary?: { vehicle_idx: number; stop_count: number; total_distance_m: number; total_duration_s: number }[];
   infeasibility_reason?: string;
   suggestions?: string[];
@@ -26,7 +29,7 @@ type OptimizationResult = {
 
 export function OptimizationPage() {
   const navigate = useNavigate();
-  const { datasetId, setPlanId, refresh } = useWorkflowContext();
+  const { datasetId, dataset, setPlanId, refresh } = useWorkflowContext();
 
   const [depotName, setDepotName] = useState("SG Central Depot");
   const [depotLat, setDepotLat] = useState("1.3521");
@@ -42,6 +45,40 @@ export function OptimizationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(() => localStorage.getItem("optimize_job_id"));
+  const { job, start: startJobTracking } = useJobStatus();
+
+  const loadFromJobResult = async (jobData: any) => {
+    const resultRef = jobData?.result_ref as OptimizationResult | undefined;
+    if (!resultRef) return;
+    setResult(resultRef);
+    if (resultRef.plan_id) {
+      setPlanId(resultRef.plan_id);
+      await refresh();
+    }
+  };
+
+  useEffect(() => {
+    if (activeJobId) {
+      void startJobTracking(activeJobId);
+    }
+  }, [activeJobId, startJobTracking]);
+
+  useEffect(() => {
+    if (!job) return;
+    if (job.status === "SUCCEEDED") {
+      localStorage.removeItem("optimize_job_id");
+      setActiveJobId(null);
+      void loadFromJobResult(job);
+      toast.success("Optimization complete", { description: "Plan is ready in Results." });
+    } else if (job.status === "FAILED") {
+      localStorage.removeItem("optimize_job_id");
+      setActiveJobId(null);
+      setError(job.message ?? "Optimization failed.");
+      toast.error("Optimization failed", { description: job.message ?? "Adjust constraints and retry." });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.status, job?.message]);
 
   const applySuggestion = (suggestion: string) => {
     const s = suggestion.toLowerCase();
@@ -87,20 +124,13 @@ export function OptimizationPage() {
         },
       };
 
-      const data = (await optimizeDataset(datasetId, payload)) as OptimizationResult;
-      setResult(data);
-      setPlanId(data.plan_id);
-      await refresh();
-
-      if (data.feasible) {
-        toast.success("Optimization complete", {
-          description: `Plan #${data.plan_id} is ready in Results.`,
-        });
-      } else {
-        toast.warning("No feasible full solution", {
-          description: "Apply a suggested fix and rerun optimization.",
-        });
-      }
+      const accepted = await optimizeDataset(datasetId, payload);
+      setActiveJobId(accepted.job_id);
+      localStorage.setItem("optimize_job_id", accepted.job_id);
+      await startJobTracking(accepted.job_id);
+      toast.info("Optimization started", {
+        description: "Running in background. You can monitor progress and come back later.",
+      });
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? "Optimization failed. Confirm geocoding and constraints.";
       setError(msg);
@@ -114,7 +144,8 @@ export function OptimizationPage() {
 
   const finishEstimate = useMemo(() => {
     if (!result?.route_summary?.length) return "--";
-    const maxDuration = Math.max(...result.route_summary.map((route) => route.total_duration_s));
+    const durationBase = Number(result.total_makespan_s || 0);
+    const maxDuration = durationBase > 0 ? durationBase : Math.max(...result.route_summary.map((route) => route.total_duration_s));
     const [hour, minute] = workStart.split(":").map(Number);
     const totalMinutes = hour * 60 + minute + Math.round(maxDuration / 60);
     const finishHour = Math.floor(totalMinutes / 60) % 24;
@@ -208,7 +239,7 @@ export function OptimizationPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" onClick={() => void runOptimization()} disabled={loading}>
+            <Button size="lg" onClick={() => void runOptimization()} disabled={loading || !!activeJobId}>
               {loading ? (
                 <>
                   <Clock3 className="mr-2 h-4 w-4 animate-spin" /> Optimizing routes...
@@ -219,8 +250,21 @@ export function OptimizationPage() {
                 </>
               )}
             </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate("/results")}>Open results</Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => navigate("/results")}
+              disabled={dataset?.optimize_state !== "COMPLETE" && !(result?.feasible && result?.plan_id)}
+            >
+              Open results
+            </Button>
           </div>
+          {activeJobId && job && (
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+              <p className="font-semibold">Optimization progress: {job.progress}%</p>
+              <p className="text-muted-foreground">{job.message ?? "Running..."}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -241,7 +285,7 @@ export function OptimizationPage() {
               Run summary
               {result.feasible ? <Badge variant="success">Feasible</Badge> : <Badge variant="danger">Infeasible</Badge>}
             </CardTitle>
-            <CardDescription>Route run #{result.plan_id} • Depot: {depotName} • Estimated finish: {finishEstimate}</CardDescription>
+            <CardDescription>Route run #{result.plan_id} â€¢ Depot: {depotName} â€¢ Estimated finish: {finishEstimate}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {result.feasible ? (
@@ -317,3 +361,4 @@ export function OptimizationPage() {
     </div>
   );
 }
+

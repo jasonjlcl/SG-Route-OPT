@@ -122,7 +122,20 @@ class OneMapClient:
         time.sleep(sleep_time)
 
     def search(self, query: str) -> dict[str, Any]:
-        if self.mock_mode:
+        params = {
+            "searchVal": query,
+            "returnGeom": "Y",
+            "getAddrDetails": "Y",
+            "pageNum": 1,
+        }
+        try:
+            return self._request_with_retries(
+                "GET",
+                self.settings.onemap_search_url,
+                params=params,
+            )
+        except Exception:
+            # Search endpoint is generally public, but if unavailable, keep local dev usable.
             lat, lon = self._mock_lat_lon(query)
             return {
                 "found": 1,
@@ -132,20 +145,10 @@ class OneMapClient:
                         "POSTAL": self._extract_postal(query),
                         "LATITUDE": str(lat),
                         "LONGITUDE": str(lon),
+                        "MOCK": "true",
                     }
                 ],
             }
-
-        return self._request_with_retries(
-            "GET",
-            self.settings.onemap_search_url,
-            params={
-                "searchVal": query,
-                "returnGeom": "Y",
-                "getAddrDetails": "Y",
-                "pageNum": 1,
-            },
-        )
 
     def route(
         self,

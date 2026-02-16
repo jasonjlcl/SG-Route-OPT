@@ -4,19 +4,24 @@ import base64
 import csv
 import html
 import io
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 import qrcode
+import httpx
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from PIL import Image, ImageDraw
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from sqlalchemy.orm import Session
 
+from app.models import Plan
 from app.services.optimization import get_plan_details
 from app.utils.errors import AppError, log_error
+from app.utils.settings import get_settings
 
 try:
     from weasyprint import HTML
@@ -42,7 +47,7 @@ def export_plan_csv(db: Session, plan_id: int) -> str:
     plan = get_plan_details(db, plan_id)
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["vehicle_idx", "sequence", "stop_ref", "eta_iso", "address", "lat", "lon"])
+    writer.writerow(["vehicle_idx", "sequence", "stop_ref", "eta_iso", "address", "phone", "contact_name", "lat", "lon"])
 
     for route in plan["routes"]:
         for stop in route["stops"]:
@@ -53,6 +58,8 @@ def export_plan_csv(db: Session, plan_id: int) -> str:
                     stop["stop_ref"],
                     stop["eta_iso"],
                     stop["address"],
+                    stop.get("phone"),
+                    stop.get("contact_name"),
                     stop["lat"],
                     stop["lon"],
                 ]
@@ -74,6 +81,8 @@ def export_driver_csv(db: Session, plan_id: int) -> str:
             "planned_eta",
             "time_window",
             "service_window",
+            "phone",
+            "contact_name",
             "lat",
             "lon",
         ]
@@ -90,6 +99,8 @@ def export_driver_csv(db: Session, plan_id: int) -> str:
                     _to_time(stop["eta_iso"]),
                     f"{_to_time(stop['arrival_window_start_iso'])} - {_to_time(stop['arrival_window_end_iso'])}",
                     f"{_to_time(stop['service_start_iso'])} - {_to_time(stop['service_end_iso'])}",
+                    stop.get("phone"),
+                    stop.get("contact_name"),
                     stop["lat"],
                     stop["lon"],
                 ]
@@ -141,8 +152,9 @@ def export_plan_pdf(
             )
 
         summary = _build_summary(plan, routes)
-        map_svg = get_map_snapshot_svg(db, plan_id, vehicle_idx)
-        map_data_uri = f"data:image/svg+xml;base64,{base64.b64encode(map_svg).decode('utf-8')}"
+        map_route_id = int(routes[0]["route_id"]) if vehicle_idx is not None and routes else None
+        map_png = generate_map_png(db, plan_id, route_id=map_route_id, mode="single" if map_route_id is not None else "all")
+        map_data_uri = f"data:image/png;base64,{base64.b64encode(map_png).decode('utf-8')}"
 
         route_sections = []
         for index, route in enumerate(routes):
@@ -225,6 +237,7 @@ def _build_summary(plan: dict[str, Any], routes: list[dict[str, Any]]) -> dict[s
     served = sum(1 for route in routes for stop in route["stops"] if stop["stop_ref"] != "DEPOT")
     total_distance = sum(float(route["total_distance_m"]) for route in routes)
     total_duration = sum(float(route["total_duration_s"]) for route in routes)
+    makespan = float(plan.get("total_makespan_s") or 0)
 
     eta_values = [
         datetime.fromisoformat(stop["eta_iso"]).timestamp()
@@ -239,7 +252,8 @@ def _build_summary(plan: dict[str, Any], routes: list[dict[str, Any]]) -> dict[s
         "served_stops": served,
         "unserved_stops": len(plan.get("unserved_stops", [])),
         "distance_km": round(total_distance / 1000, 2),
-        "duration_min": max(1, round(total_duration / 60)),
+        "duration_min": max(1, round((makespan if makespan > 0 else total_duration) / 60)),
+        "sum_vehicle_duration_min": max(1, round(total_duration / 60)),
         "finish_time": finish_time,
     }
 
@@ -268,6 +282,8 @@ def _build_route_rows(route: dict[str, Any]) -> list[dict[str, Any]]:
                 "service_time": _service_minutes(stop["service_start_iso"], stop["service_end_iso"]),
                 "drive_to_next": next_drive,
                 "notes": "Depot" if stop["stop_ref"] == "DEPOT" else "",
+                "phone": stop.get("phone"),
+                "contact_name": stop.get("contact_name"),
             }
         )
     return rows
@@ -362,3 +378,123 @@ def _build_route_svg(routes: list[dict[str, Any]], width: int = 1200, height: in
 
     svg = f"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}'>{''.join(elements)}</svg>"
     return svg
+
+
+def generate_map_png(
+    db: Session,
+    plan_id: int,
+    *,
+    route_id: int | None = None,
+    mode: str = "all",
+    progress_cb: Any | None = None,
+) -> bytes:
+    plan = get_plan_details(db, plan_id)
+    selected_routes = plan["routes"]
+    if mode == "single" and route_id is not None:
+        selected_routes = [route for route in selected_routes if int(route["route_id"]) == int(route_id)]
+    if not selected_routes:
+        raise AppError(
+            message="No routes available for map PNG",
+            error_code="NOT_FOUND",
+            status_code=404,
+            stage="EXPORT",
+            details={"plan_id": plan_id, "route_id": route_id, "mode": mode},
+        )
+
+    plan_row = db.get(Plan, plan_id)
+    updated_stamp = str(int((plan_row.updated_at.timestamp() if plan_row and plan_row.updated_at else time.time())))
+    suffix = f"{mode}_{route_id if route_id is not None else 'all'}_{updated_stamp}"
+    cache_file = MAP_CACHE_DIR / f"plan_{plan_id}_{suffix}.png"
+    if cache_file.exists():
+        return cache_file.read_bytes()
+
+    if progress_cb:
+        progress_cb(40, "Rendering tile-accurate map snapshot")
+
+    png = _render_map_png_with_playwright(plan_id=plan_id, route_id=route_id, mode=mode)
+    if png is None:
+        if progress_cb:
+            progress_cb(70, "Playwright unavailable, using fallback renderer")
+        # Do not cache fallback output to allow automatic recovery once frontend/playwright is available.
+        return _build_route_png_fallback(selected_routes)
+
+    cache_file.write_bytes(png)
+    return png
+
+
+def _render_map_png_with_playwright(*, plan_id: int, route_id: int | None, mode: str) -> bytes | None:
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:  # noqa: BLE001
+        return None
+
+    settings = get_settings()
+    try:
+        httpx.get(settings.frontend_base_url, timeout=1.5)
+    except Exception:
+        return None
+
+    params = [f"plan_id={plan_id}", f"mode={mode}"]
+    if route_id is not None:
+        params.append(f"route_id={route_id}")
+    url = f"{settings.frontend_base_url.rstrip('/')}/print/map?{'&'.join(params)}"
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1400, "height": 900})
+            page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_selector("#print-map-ready[data-ready='1']", timeout=25000)
+            page.wait_for_function(
+                "() => document.querySelectorAll('.leaflet-tile-loaded').length > 0 || document.querySelectorAll('.leaflet-tile-container img').length === 0",
+                timeout=10000,
+            )
+            img = page.screenshot(type="png", full_page=False)
+            browser.close()
+            return img
+    except Exception:
+        return None
+
+
+def _build_route_png_fallback(routes: list[dict[str, Any]], width: int = 1400, height: int = 900) -> bytes:
+    points: list[tuple[float, float]] = []
+    for route in routes:
+        for stop in route["stops"]:
+            points.append((float(stop["lon"]), float(stop["lat"])))
+
+    if not points:
+        image = Image.new("RGB", (width, height), (248, 250, 252))
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        return buf.getvalue()
+
+    min_lon = min(point[0] for point in points)
+    max_lon = max(point[0] for point in points)
+    min_lat = min(point[1] for point in points)
+    max_lat = max(point[1] for point in points)
+    lon_span = max(max_lon - min_lon, 0.0001)
+    lat_span = max(max_lat - min_lat, 0.0001)
+    pad = 56
+
+    def transform(lon: float, lat: float) -> tuple[int, int]:
+        x = int(pad + ((lon - min_lon) / lon_span) * (width - 2 * pad))
+        y = int(height - pad - ((lat - min_lat) / lat_span) * (height - 2 * pad))
+        return x, y
+
+    image = Image.new("RGB", (width, height), (248, 250, 252))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((18, 18, width - 18, height - 18), radius=18, outline=(219, 226, 234), fill=(255, 255, 255), width=2)
+
+    for idx, route in enumerate(routes):
+        color = ROUTE_COLORS[idx % len(ROUTE_COLORS)]
+        rgb = tuple(int(color[k : k + 2], 16) for k in (1, 3, 5))
+        xy = [transform(float(stop["lon"]), float(stop["lat"])) for stop in route["stops"]]
+        if len(xy) >= 2:
+            draw.line(xy, fill=rgb, width=5)
+        for stop in route["stops"]:
+            x, y = transform(float(stop["lon"]), float(stop["lat"]))
+            draw.ellipse((x - 10, y - 10, x + 10, y + 10), fill=rgb, outline=(255, 255, 255), width=2)
+
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    return buf.getvalue()

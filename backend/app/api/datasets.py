@@ -4,7 +4,14 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
-from app.schemas.api import DatasetSummaryResponse, DatasetUploadResponse, OptimizeRequest, OptimizeResponse, StopsPageResponse
+from app.schemas.api import (
+    DatasetSummaryResponse,
+    DatasetUploadResponse,
+    JobAcceptedResponse,
+    OptimizeRequest,
+    OptimizeResponse,
+    StopsPageResponse,
+)
 from app.services.datasets import (
     create_dataset_from_upload,
     dataset_summary,
@@ -12,6 +19,7 @@ from app.services.datasets import (
     list_stops,
 )
 from app.services.geocoding import geocode_dataset
+from app.services.jobs import create_job, enqueue_job
 from app.services.optimization import OptimizationPayload, optimize_dataset
 from app.utils.db import get_db
 
@@ -62,9 +70,20 @@ def get_dataset_stops(
 def run_geocoding(
     dataset_id: int,
     failed_only: bool = Query(default=False),
+    force_all: bool = Query(default=False),
+    sync: bool = Query(default=False),
     db: Session = Depends(get_db),
 ) -> dict:
-    return geocode_dataset(db, dataset_id, failed_only=failed_only)
+    if sync:
+        return geocode_dataset(db, dataset_id, failed_only=failed_only, force_all=force_all)
+
+    job = create_job(
+        db,
+        job_type="GEOCODE_DATASET",
+        payload={"dataset_id": dataset_id, "failed_only": failed_only, "force_all": force_all},
+    )
+    enqueue_job(job)
+    return JobAcceptedResponse(job_id=job.id, type=job.type).model_dump()
 
 
 @router.get("/{dataset_id}/error-log")
@@ -74,24 +93,44 @@ def download_validation_error_log(dataset_id: int, db: Session = Depends(get_db)
     return PlainTextResponse(content=csv_data, media_type="text/csv", headers=headers)
 
 
-@router.post("/{dataset_id}/optimize", response_model=OptimizeResponse)
+@router.post("/{dataset_id}/optimize")
 def optimize(
     dataset_id: int,
     payload: OptimizeRequest,
+    sync: bool = Query(default=False),
     db: Session = Depends(get_db),
-) -> OptimizeResponse:
-    result = optimize_dataset(
+) -> dict:
+    if sync:
+        result = optimize_dataset(
+            db,
+            dataset_id,
+            OptimizationPayload(
+                depot_lat=payload.depot_lat,
+                depot_lon=payload.depot_lon,
+                num_vehicles=payload.fleet.num_vehicles,
+                capacity=payload.fleet.capacity,
+                workday_start=payload.workday_start,
+                workday_end=payload.workday_end,
+                solver_time_limit_s=payload.solver.solver_time_limit_s,
+                allow_drop_visits=payload.solver.allow_drop_visits,
+            ),
+        )
+        return OptimizeResponse(**result).model_dump()
+
+    job = create_job(
         db,
-        dataset_id,
-        OptimizationPayload(
-            depot_lat=payload.depot_lat,
-            depot_lon=payload.depot_lon,
-            num_vehicles=payload.fleet.num_vehicles,
-            capacity=payload.fleet.capacity,
-            workday_start=payload.workday_start,
-            workday_end=payload.workday_end,
-            solver_time_limit_s=payload.solver.solver_time_limit_s,
-            allow_drop_visits=payload.solver.allow_drop_visits,
-        ),
+        job_type="OPTIMIZE_DATASET",
+        payload={
+            "dataset_id": dataset_id,
+            "depot_lat": payload.depot_lat,
+            "depot_lon": payload.depot_lon,
+            "num_vehicles": payload.fleet.num_vehicles,
+            "capacity": payload.fleet.capacity,
+            "workday_start": payload.workday_start,
+            "workday_end": payload.workday_end,
+            "solver_time_limit_s": payload.solver.solver_time_limit_s,
+            "allow_drop_visits": payload.solver.allow_drop_visits,
+        },
     )
-    return OptimizeResponse(**result)
+    enqueue_job(job)
+    return JobAcceptedResponse(job_id=job.id, type=job.type).model_dump()

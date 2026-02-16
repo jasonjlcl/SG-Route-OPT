@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import type { UploadResponse } from "../types";
 
-const TEMPLATE_CONTENT = `stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end\nS1,10 Bayfront Avenue,,1,5,09:00,12:00\nS2,1 Raffles Place,,2,8,10:00,15:30\nS3,,768024,1,6,09:30,16:00\n`;
+const TEMPLATE_CONTENT = `stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end,phone,contact_name\nS1,10 Bayfront Avenue,,1,5,09:00,12:00,+65 81234567,Jason Tan\nS2,1 Raffles Place,,2,8,10:00,15:30,,\nS3,,768024,1,6,09:30,16:00,91234567,Ops Desk\n`;
 
 export function UploadPage() {
   const navigate = useNavigate();
@@ -35,6 +35,11 @@ export function UploadPage() {
     const kb = file.size / 1024;
     return `${file.name} (${kb.toFixed(1)} KB)`;
   }, [file]);
+
+  const canContinueToGeocoding = useMemo(() => {
+    if (!result) return false;
+    return result.next_action === "RUN_GEOCODING" && result.validation_summary.valid_rows_count > 0;
+  }, [result]);
 
   const onUpload = async (excludeInvalid: boolean) => {
     if (!file) {
@@ -130,7 +135,7 @@ export function UploadPage() {
             <summary className="cursor-pointer font-semibold">File requirements</summary>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-muted-foreground">
               <li>Required columns: <code>stop_ref</code>, and at least one of <code>address</code> or <code>postal_code</code>.</li>
-              <li>Optional columns: <code>demand</code>, <code>service_time_min</code>, <code>tw_start</code>, <code>tw_end</code>.</li>
+              <li>Optional columns: <code>demand</code>, <code>service_time_min</code>, <code>tw_start</code>, <code>tw_end</code>, <code>phone</code>, <code>contact_name</code>.</li>
               <li>Time format must be HH:MM (24-hour).</li>
               <li>Demand and service time must be non-negative integers.</li>
             </ul>
@@ -194,7 +199,9 @@ export function UploadPage() {
                   <Download className="mr-2 h-4 w-4" /> Download error log CSV
                 </Button>
               )}
-              <Button onClick={() => navigate("/geocoding")}>Continue to geocoding</Button>
+              <Button onClick={() => navigate("/geocoding")} disabled={!canContinueToGeocoding}>
+                Continue to geocoding
+              </Button>
             </div>
 
             {result.validation_summary.invalid_rows_count > 0 ? (

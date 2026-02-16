@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { getDataset, getStops, manualResolveStop, runGeocoding } from "../api";
 import { useWorkflowContext } from "../components/layout/WorkflowContext";
+import { useJobStatus } from "../hooks/useJobStatus";
 import { EmptyState } from "../components/status/EmptyState";
 import { ErrorState } from "../components/status/ErrorState";
 import { Badge } from "../components/ui/badge";
@@ -18,6 +19,7 @@ import { Label } from "../components/ui/label";
 import { Progress } from "../components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { checkCoordinate } from "../lib/geo";
 import type { StopItem } from "../types";
 
 const statusFilterToBackend: Record<string, string | undefined> = {
@@ -51,6 +53,8 @@ export function GeocodingPage() {
   const [postalInput, setPostalInput] = useState("");
   const [latInput, setLatInput] = useState("");
   const [lonInput, setLonInput] = useState("");
+  const [activeJobId, setActiveJobId] = useState<string | null>(() => localStorage.getItem("geocode_job_id"));
+  const { job, jobError, start: startJobTracking } = useJobStatus();
 
   const loadData = async () => {
     if (!datasetId) return;
@@ -72,6 +76,41 @@ export function GeocodingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasetId, statusFilter]);
 
+  useEffect(() => {
+    if (activeJobId) {
+      void startJobTracking(activeJobId);
+    }
+  }, [activeJobId, startJobTracking]);
+
+  useEffect(() => {
+    if (!job) return;
+    if (job.status === "SUCCEEDED") {
+      localStorage.removeItem("geocode_job_id");
+      setActiveJobId(null);
+      toast.success("Geocoding complete", {
+        description: job.message ?? "Stop coordinates are updated.",
+      });
+      void loadData();
+    } else if (job.status === "FAILED") {
+      localStorage.removeItem("geocode_job_id");
+      setActiveJobId(null);
+      setError(job.message ?? "Geocoding failed.");
+      toast.error("Geocoding failed", {
+        description: job.message ?? "Resolve failed stops and retry.",
+      });
+      void loadData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.status, job?.message]);
+
+  useEffect(() => {
+    if (!jobError) return;
+    if (activeJobId) {
+      localStorage.removeItem("geocode_job_id");
+      setActiveJobId(null);
+    }
+  }, [jobError, activeJobId]);
+
   const geocodeProgress = useMemo(() => {
     const counts = datasetInfo?.geocode_counts || {};
     const total = Number(datasetInfo?.stop_count || 0);
@@ -83,16 +122,18 @@ export function GeocodingPage() {
     return { total, success, failed, pending, percent };
   }, [datasetInfo]);
 
-  const runBatchGeocode = async (failedOnly: boolean) => {
+  const runBatchGeocode = async (failedOnly: boolean, forceAll = false) => {
     if (!datasetId) return;
     try {
       setLoading(true);
       setError(null);
-      const response = await runGeocoding(datasetId, failedOnly);
-      toast.success(failedOnly ? "Failed stops retried" : "Geocoding complete", {
-        description: `${response.success_count} stops resolved, ${response.failed_count} still need attention.`,
+      const accepted = await runGeocoding(datasetId, failedOnly, forceAll);
+      setActiveJobId(accepted.job_id);
+      localStorage.setItem("geocode_job_id", accepted.job_id);
+      await startJobTracking(accepted.job_id);
+      toast.info("Geocoding started", {
+        description: "Processing in background. You can navigate away and return anytime.",
       });
-      await loadData();
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? "Geocoding could not complete.";
       setError(msg);
@@ -147,9 +188,28 @@ export function GeocodingPage() {
     );
   }
 
-  const mapStops = stops.filter((stop) => stop.lat !== null && stop.lon !== null);
-  const mapCenter: [number, number] =
-    mapStops.length > 0 ? [Number(mapStops[0].lat), Number(mapStops[0].lon)] : [1.3521, 103.8198];
+  const stopCoordinateChecks = useMemo(
+    () =>
+      stops.map((stop) => ({
+        stop,
+        coord: checkCoordinate({ lat: stop.lat, lon: stop.lon }),
+      })),
+    [stops]
+  );
+  const mapStops = stopCoordinateChecks.filter((entry) => entry.coord.isValid && entry.coord.point);
+  const swappedCount = stopCoordinateChecks.filter((entry) => entry.coord.warnings.includes("SWAPPED_INPUT")).length;
+  const outOfSingaporeCount = mapStops.filter((entry) => entry.coord.warnings.includes("OUTSIDE_SINGAPORE")).length;
+  const invalidCount = stopCoordinateChecks.filter((entry) => !entry.coord.isValid && (entry.stop.lat !== null || entry.stop.lon !== null)).length;
+  const mapCenter: [number, number] = mapStops.length > 0 ? (mapStops[0].coord.point as [number, number]) : [1.3521, 103.8198];
+  const modalCoordinate = checkCoordinate({
+    lat: latInput !== "" ? latInput : selectedStop?.lat,
+    lon: lonInput !== "" ? lonInput : selectedStop?.lon,
+  });
+  const queuedTooLong =
+    Boolean(activeJobId) &&
+    job?.status === "QUEUED" &&
+    Date.now() - new Date(job.updated_at).getTime() > 45_000;
+  const isJobBlocking = Boolean(activeJobId) && !queuedTooLong && (!job || job.status === "QUEUED" || job.status === "RUNNING");
 
   return (
     <div className="space-y-4">
@@ -178,25 +238,54 @@ export function GeocodingPage() {
             </div>
           </div>
 
-          <div className="space-y-2">
+            <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Progress</span>
-              <span>{geocodeProgress.percent}%</span>
+              <span>{activeJobId ? "Job progress" : "Progress"}</span>
+              <span>{activeJobId && job ? `${job.progress}%` : `${geocodeProgress.percent}%`}</span>
             </div>
-            <Progress value={geocodeProgress.percent} />
+            <Progress value={activeJobId && job ? job.progress : geocodeProgress.percent} />
+            {activeJobId && job && <p className="text-xs text-muted-foreground">{job.message}</p>}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={loading} onClick={() => void runBatchGeocode(false)}>
+            <div className="flex flex-wrap gap-2">
+            <Button disabled={loading || isJobBlocking} onClick={() => void runBatchGeocode(false)}>
               <Search className="mr-2 h-4 w-4" /> {loading ? "Running geocode..." : "Run geocoding"}
             </Button>
-            <Button variant="outline" disabled={loading} onClick={() => void runBatchGeocode(true)}>
+            <Button variant="outline" disabled={loading || isJobBlocking} onClick={() => void runBatchGeocode(true)}>
               <RefreshCcw className="mr-2 h-4 w-4" /> Retry failed stops
             </Button>
-            <Button variant="secondary" onClick={() => navigate("/optimization")}>Continue to optimization</Button>
-          </div>
-        </CardContent>
-      </Card>
+            <Button variant="outline" disabled={loading || isJobBlocking} onClick={() => void runBatchGeocode(false, true)}>
+              Re-geocode all stops
+            </Button>
+            {queuedTooLong && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  localStorage.removeItem("geocode_job_id");
+                  setActiveJobId(null);
+                }}
+              >
+                Clear stalled job
+              </Button>
+            )}
+              <Button variant="secondary" onClick={() => navigate("/optimization")} disabled={datasetInfo?.geocode_state !== "COMPLETE"}>
+                Continue to optimization
+              </Button>
+            </div>
+            {queuedTooLong && (
+              <p className="text-xs text-warning">
+                Geocoding job is queued for too long. Start `rq worker default --url redis://localhost:6379/0` or rerun now.
+              </p>
+            )}
+          {(outOfSingaporeCount > 0 || invalidCount > 0 || swappedCount > 0) && (
+              <div className="flex flex-wrap gap-2">
+                {invalidCount > 0 && <Badge variant="danger">Invalid coordinates: {invalidCount}</Badge>}
+                {swappedCount > 0 && <Badge variant="warning">Lat/lon swapped and corrected: {swappedCount}</Badge>}
+                {outOfSingaporeCount > 0 && <Badge variant="warning">Outside Singapore bounds: {outOfSingaporeCount}</Badge>}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
       {error && (
         <ErrorState
@@ -278,13 +367,14 @@ export function GeocodingPage() {
           <CardContent className="h-[540px] pt-0">
             <MapContainer center={mapCenter} zoom={11} className="rounded-xl border">
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-              {mapStops.map((stop, index) => (
-                <Marker key={stop.id} position={[Number(stop.lat), Number(stop.lon)]} icon={markerLabel(index)}>
+              {mapStops.map((entry, index) => (
+                <Marker key={entry.stop.id} position={entry.coord.point as [number, number]} icon={markerLabel(index)}>
                   <Tooltip>
                     <div className="space-y-1 text-xs">
-                      <p className="font-semibold">{stop.stop_ref}</p>
-                      <p>{stop.address ?? stop.postal_code ?? "No address"}</p>
-                      <p>Status: {stop.geocode_status}</p>
+                      <p className="font-semibold">{entry.stop.stop_ref}</p>
+                      <p>{entry.stop.address ?? entry.stop.postal_code ?? "No address"}</p>
+                      <p>Status: {entry.stop.geocode_status}</p>
+                      {entry.coord.warnings.includes("OUTSIDE_SINGAPORE") && <p className="text-warning">Outside SG bounds</p>}
                     </div>
                   </Tooltip>
                 </Marker>
@@ -295,7 +385,7 @@ export function GeocodingPage() {
       </div>
 
       <Dialog open={Boolean(selectedStop)} onOpenChange={(open) => !open && setSelectedStop(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Resolve stop {selectedStop?.stop_ref}</DialogTitle>
             <DialogDescription>Choose corrected search or manual coordinates. Save to mark stop as manually resolved.</DialogDescription>
@@ -332,21 +422,14 @@ export function GeocodingPage() {
 
               <div className="h-52 overflow-hidden rounded-xl border">
                 <MapContainer
-                  center={
-                    latInput && lonInput
-                      ? [Number(latInput), Number(lonInput)]
-                      : [selectedStop?.lat ?? 1.3521, selectedStop?.lon ?? 103.8198]
-                  }
+                  center={modalCoordinate.point ?? [1.3521, 103.8198]}
                   zoom={12}
+                  className="h-full w-full"
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                  {(latInput && lonInput) || (selectedStop?.lat && selectedStop?.lon) ? (
+                  {modalCoordinate.point ? (
                     <Marker
-                      position={
-                        latInput && lonInput
-                          ? [Number(latInput), Number(lonInput)]
-                          : [Number(selectedStop?.lat), Number(selectedStop?.lon)]
-                      }
+                      position={modalCoordinate.point as [number, number]}
                       icon={L.divIcon({ className: "", html: `<div class='route-seq-marker'><span><svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='white' stroke-width='2' viewBox='0 0 24 24'><path d='M12 2v20M2 12h20'/></svg></span></div>` })}
                     />
                   ) : null}

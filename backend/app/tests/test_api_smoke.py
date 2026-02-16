@@ -16,12 +16,12 @@ S3,50 Nanyang Ave,1,5,09:30,16:30
     assert upload_resp.status_code == 200
     dataset_id = upload_resp.json()["dataset_id"]
 
-    geocode_resp = client.post(f"/api/v1/datasets/{dataset_id}/geocode")
+    geocode_resp = client.post(f"/api/v1/datasets/{dataset_id}/geocode", params={"sync": "true"})
     assert geocode_resp.status_code == 200
     assert geocode_resp.json()["success_count"] >= 1
 
     optimize_resp = client.post(
-        f"/api/v1/datasets/{dataset_id}/optimize",
+        f"/api/v1/datasets/{dataset_id}/optimize?sync=true",
         json={
             "depot_lat": 1.3521,
             "depot_lon": 103.8198,
@@ -39,6 +39,7 @@ S3,50 Nanyang Ave,1,5,09:30,16:30
     plan_resp = client.get(f"/api/v1/plans/{plan_id}")
     assert plan_resp.status_code == 200
     assert plan_resp.json()["plan_id"] == plan_id
+    assert "total_makespan_s" in plan_resp.json()
 
     csv_export = client.get(f"/api/v1/plans/{plan_id}/export", params={"format": "csv"})
     assert csv_export.status_code == 200
@@ -47,3 +48,7 @@ S3,50 Nanyang Ave,1,5,09:30,16:30
     pdf_export = client.get(f"/api/v1/plans/{plan_id}/export", params={"format": "pdf"})
     assert pdf_export.status_code == 200
     assert pdf_export.headers["content-type"].startswith("application/pdf")
+
+    png_map = client.get(f"/api/v1/plans/{plan_id}/map.png", params={"mode": "all"})
+    assert png_map.status_code == 200
+    assert png_map.headers["content-type"].startswith("image/png")

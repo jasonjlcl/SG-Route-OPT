@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getDataset, getPlan } from "../api";
+import type { DatasetSummary } from "../types";
 
 export type StepStatus = "not_started" | "in_progress" | "complete" | "attention";
 
@@ -14,7 +15,7 @@ export type WorkflowStep = {
 export function useWorkflowState() {
   const [datasetId, setDatasetIdState] = useState<number>(() => Number(localStorage.getItem("dataset_id") || "0"));
   const [planId, setPlanIdState] = useState<number>(() => Number(localStorage.getItem("plan_id") || "0"));
-  const [dataset, setDataset] = useState<any>(null);
+  const [dataset, setDataset] = useState<DatasetSummary | null>(null);
   const [plan, setPlan] = useState<any>(null);
 
   const setDatasetId = useCallback((id: number) => {
@@ -56,29 +57,47 @@ export function useWorkflowState() {
   }, [refresh]);
 
   const steps: WorkflowStep[] = useMemo(() => {
-    const dsStatus = String(dataset?.status || "");
-    const geocoded = Number(dataset?.geocode_counts?.SUCCESS || 0) + Number(dataset?.geocode_counts?.MANUAL || 0);
-    const failed = Number(dataset?.geocode_counts?.FAILED || 0);
-    const stopCount = Number(dataset?.stop_count || 0);
+    const uploadStatus: StepStatus = datasetId > 0 ? "complete" : "not_started";
 
-    const uploadStatus: StepStatus = datasetId > 0 ? "complete" : "in_progress";
+    const validationState = dataset?.validation_state ?? "NOT_STARTED";
+    const geocodeState = dataset?.geocode_state ?? "NOT_STARTED";
+    const optimizeState = dataset?.optimize_state ?? "NOT_STARTED";
+
     const validateStatus: StepStatus =
-      datasetId === 0
-        ? "not_started"
-        : dsStatus.includes("VALIDATION_FAILED")
+      validationState === "VALID" || validationState === "PARTIAL"
+        ? "complete"
+        : validationState === "BLOCKED"
           ? "attention"
-          : "complete";
+          : datasetId > 0
+            ? "in_progress"
+            : "not_started";
+
     const geocodeStatus: StepStatus =
-      datasetId === 0
-        ? "not_started"
-        : geocoded === 0 && failed === 0
-          ? "in_progress"
-          : geocoded > 0 && failed === 0
-            ? "complete"
-            : "attention";
+      geocodeState === "COMPLETE"
+        ? "complete"
+        : geocodeState === "NEEDS_ATTENTION"
+          ? "attention"
+          : geocodeState === "IN_PROGRESS"
+            ? "in_progress"
+            : datasetId > 0
+              ? "in_progress"
+              : "not_started";
+
     const optimizeStatus: StepStatus =
-      planId === 0 ? "not_started" : String(plan?.status || "").toUpperCase() === "INFEASIBLE" ? "attention" : "complete";
-    const resultsStatus: StepStatus = planId > 0 && stopCount > 0 ? "complete" : "not_started";
+      optimizeState === "COMPLETE"
+        ? "complete"
+        : optimizeState === "NEEDS_ATTENTION"
+          ? "attention"
+          : optimizeState === "RUNNING"
+            ? "in_progress"
+            : geocodeState === "COMPLETE"
+              ? "in_progress"
+              : "not_started";
+
+    const viewedPlanId = Number(localStorage.getItem("results_viewed_plan_id") || "0");
+    const effectivePlanId = dataset?.latest_plan_id ?? planId;
+    const hasView = effectivePlanId > 0 && viewedPlanId === effectivePlanId;
+    const resultsStatus: StepStatus = effectivePlanId <= 0 ? "not_started" : hasView ? "complete" : "in_progress";
 
     return [
       { key: "upload", label: "Upload", route: "/upload", status: uploadStatus },
@@ -87,7 +106,7 @@ export function useWorkflowState() {
       { key: "optimize", label: "Optimize", route: "/optimization", status: optimizeStatus },
       { key: "results", label: "Results", route: "/results", status: resultsStatus },
     ];
-  }, [dataset, datasetId, plan, planId]);
+  }, [dataset, datasetId, planId]);
 
   return {
     datasetId,

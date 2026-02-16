@@ -1,5 +1,20 @@
 from app.models.base import Base
-from app.models.entities import Dataset, ErrorLog, OdCache, Plan, PredictionCache, Route, RouteStop, Stop
+from app.models.entities import (
+    ActualTravelTime,
+    Dataset,
+    ErrorLog,
+    Job,
+    MLModel,
+    MLMonitoring,
+    ModelRollout,
+    OdCache,
+    Plan,
+    PredictionCache,
+    PredictionLog,
+    Route,
+    RouteStop,
+    Stop,
+)
 
 __all__ = [
     "Base",
@@ -7,6 +22,12 @@ __all__ = [
     "Stop",
     "OdCache",
     "PredictionCache",
+    "PredictionLog",
+    "ActualTravelTime",
+    "MLModel",
+    "ModelRollout",
+    "MLMonitoring",
+    "Job",
     "Plan",
     "Route",
     "RouteStop",

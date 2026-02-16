@@ -7,9 +7,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import datasets, health, plans, stops
+from app.api import datasets, health, jobs, ml, plans, stops
 from app.models import Base
-from app.utils.db import SessionLocal, engine
+from app.services.scheduler import start_scheduler, stop_scheduler
+from app.utils.db import SessionLocal, engine, ensure_schema_compatibility
 from app.utils.errors import AppError, log_error
 from app.utils.settings import get_settings
 
@@ -29,6 +30,13 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_schema_compatibility()
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+def on_shutdown() -> None:
+    stop_scheduler()
 
 
 @app.middleware("http")
@@ -76,3 +84,5 @@ app.include_router(health.router)
 app.include_router(datasets.router)
 app.include_router(stops.router)
 app.include_router(plans.router)
+app.include_router(jobs.router)
+app.include_router(ml.router)

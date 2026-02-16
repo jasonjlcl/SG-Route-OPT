@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDashed, Clock3, AlertTriangle } from "lucide-react";
+import { CheckCircle2, CircleDashed, LoaderCircle, AlertTriangle } from "lucide-react";
 import type { ComponentType } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -7,7 +7,7 @@ import { cn } from "../../lib/utils";
 
 const statusMeta: Record<StepStatus, { icon: ComponentType<{ className?: string }>; label: string; className: string }> = {
   not_started: { icon: CircleDashed, label: "Not started", className: "text-muted-foreground" },
-  in_progress: { icon: Clock3, label: "In progress", className: "text-warning" },
+  in_progress: { icon: LoaderCircle, label: "In progress", className: "text-warning animate-spin" },
   complete: { icon: CheckCircle2, label: "Complete", className: "text-success" },
   attention: { icon: AlertTriangle, label: "Needs attention", className: "text-danger" },
 };

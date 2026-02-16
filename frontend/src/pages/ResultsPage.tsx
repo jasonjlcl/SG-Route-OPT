@@ -1,10 +1,13 @@
 import L, { DivIcon } from "leaflet";
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Clock4, Download, FileDown, Navigation2, Route as RouteIcon, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip } from "react-leaflet";
 import { useNavigate } from "react-router-dom";
 
-import { getDriverCsvUrl, getExportUrl, getMapSnapshotUrl, getPlan } from "../api";
+import { getDriverCsvUrl, getExportUrl, getJobFileUrl, getMapPngUrl, getPlan, resequenceRoute, startExportJob } from "../api";
 import { DriverRouteSheet } from "../components/results/DriverRouteSheet";
 import { RouteCard } from "../components/results/RouteCard";
 import { StopCard } from "../components/results/StopCard";
@@ -16,6 +19,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Select } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useWorkflowContext } from "../components/layout/WorkflowContext";
+import { useJobStatus } from "../hooks/useJobStatus";
+import { checkCoordinate } from "../lib/geo";
 import type { PlanDetails } from "../types";
 
 const routeColors = ["#109869", "#0f69d5", "#f97316", "#8b5cf6", "#ef4444", "#0ea5a4", "#db2777"];
@@ -51,6 +56,35 @@ function slackRisk(route: PlanDetails["routes"][number]): "low" | "medium" | "hi
   return "low";
 }
 
+function SortableStopRow({
+  id,
+  label,
+  subtitle,
+}: {
+  id: number;
+  label: string;
+  subtitle: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-lg border bg-background p-3 ${isDragging ? "opacity-70" : ""}`}
+      {...attributes}
+      {...listeners}
+    >
+      <p className="text-sm font-semibold">{label}</p>
+      <p className="text-xs text-muted-foreground">{subtitle}</p>
+    </div>
+  );
+}
+
 export function ResultsPage() {
   const navigate = useNavigate();
   const { planId, refresh } = useWorkflowContext();
@@ -59,6 +93,12 @@ export function ResultsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeVehicle, setActiveVehicle] = useState<string>("all");
   const [openStops, setOpenStops] = useState<Record<number, boolean>>({});
+  const [exportJobId, setExportJobId] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [draftOrderByRoute, setDraftOrderByRoute] = useState<Record<number, number[]>>({});
+  const [previewByRoute, setPreviewByRoute] = useState<Record<number, any>>({});
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const { job: exportJob, start: startExportTracking } = useJobStatus();
 
   useEffect(() => {
     const load = async () => {
@@ -67,6 +107,7 @@ export function ResultsPage() {
         setError(null);
         const data = await getPlan(planId);
         setPlan(data);
+        localStorage.setItem("results_viewed_plan_id", String(planId));
         await refresh();
       } catch (err: any) {
         setError(err?.response?.data?.message ?? "Unable to load plan results.");
@@ -75,11 +116,39 @@ export function ResultsPage() {
     void load();
   }, [planId, refresh]);
 
+  useEffect(() => {
+    if (!exportJobId) return;
+    void startExportTracking(exportJobId);
+  }, [exportJobId, startExportTracking]);
+
+  useEffect(() => {
+    if (!exportJobId || !exportJob) return;
+    if (exportJob.status === "SUCCEEDED") {
+      window.open(getJobFileUrl(exportJobId), "_blank");
+      setExportJobId(null);
+    } else if (exportJob.status === "FAILED") {
+      setError(exportJob.message ?? "Export failed.");
+      setExportJobId(null);
+    }
+  }, [exportJob, exportJobId]);
+
   const selectedRoutes = useMemo(() => {
     if (!plan) return [];
     if (activeVehicle === "all") return plan.routes;
     return plan.routes.filter((route) => String(route.vehicle_idx) === activeVehicle);
   }, [activeVehicle, plan]);
+
+  useEffect(() => {
+    if (!editMode) return;
+    const next: Record<number, number[]> = {};
+    selectedRoutes.forEach((route) => {
+      next[route.route_id] = route.stops
+        .filter((stop) => stop.stop_ref !== "DEPOT" && typeof stop.stop_id === "number")
+        .map((stop) => stop.stop_id as number);
+    });
+    setDraftOrderByRoute(next);
+    setPreviewByRoute({});
+  }, [editMode, selectedRoutes]);
 
   const summary = useMemo(() => {
     if (!plan) {
@@ -88,6 +157,7 @@ export function ResultsPage() {
         totalStops: 0,
         totalDistance: 0,
         totalDuration: 0,
+        makespan: 0,
         finishTime: "--:--",
       };
     }
@@ -99,6 +169,7 @@ export function ResultsPage() {
     const totalStops = servedStops + plan.unserved_stops.length;
     const totalDistance = plan.routes.reduce((acc, route) => acc + route.total_distance_m, 0);
     const totalDuration = plan.routes.reduce((acc, route) => acc + route.total_duration_s, 0);
+    const makespan = Number(plan.total_makespan_s || 0);
 
     const latestEta = plan.routes
       .flatMap((route) => route.stops.map((stop) => new Date(stop.eta_iso).getTime()))
@@ -107,8 +178,76 @@ export function ResultsPage() {
       ? new Date(Math.max(...latestEta)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       : "--:--";
 
-    return { servedStops, totalStops, totalDistance, totalDuration, finishTime };
+    return { servedStops, totalStops, totalDistance, totalDuration, makespan, finishTime };
   }, [plan]);
+
+  const mappedRoutes = useMemo(() => {
+    return selectedRoutes.map((route) => ({
+      ...route,
+      points: route.stops
+        .map((stop) => ({ stop, coord: checkCoordinate({ lat: stop.lat, lon: stop.lon }) }))
+        .filter((entry) => entry.coord.isValid && entry.coord.point),
+    }));
+  }, [selectedRoutes]);
+
+  const coordinateWarnings = useMemo(() => {
+    let invalid = 0;
+    let outsideSingapore = 0;
+    let swapped = 0;
+    mappedRoutes.forEach((route) => {
+      route.stops.forEach((stop) => {
+        const result = checkCoordinate({ lat: stop.lat, lon: stop.lon });
+        if (!result.isValid) invalid += 1;
+        if (result.warnings.includes("OUTSIDE_SINGAPORE")) outsideSingapore += 1;
+        if (result.warnings.includes("SWAPPED_INPUT")) swapped += 1;
+      });
+    });
+    return { invalid, outsideSingapore, swapped };
+  }, [mappedRoutes]);
+
+  const queuePdfExport = async (vehicleIdx?: number) => {
+    if (!plan) return;
+    try {
+      const accepted = await startExportJob(plan.plan_id, "pdf", {
+        profile: "driver",
+        vehicleIdx: typeof vehicleIdx === "number" ? vehicleIdx : null,
+      });
+      setExportJobId(accepted.job_id);
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? "Unable to start export job.");
+    }
+  };
+
+  const onDragEnd = (routeId: number, activeId: number, overId?: number) => {
+    if (!overId || activeId === overId) return;
+    setDraftOrderByRoute((prev) => {
+      const current = prev[routeId] ?? [];
+      const oldIdx = current.indexOf(activeId);
+      const newIdx = current.indexOf(overId);
+      if (oldIdx < 0 || newIdx < 0) return prev;
+      return { ...prev, [routeId]: arrayMove(current, oldIdx, newIdx) };
+    });
+  };
+
+  const requestResequence = async (routeId: number, apply = false) => {
+    if (!plan) return;
+    const ordered = draftOrderByRoute[routeId];
+    if (!ordered || ordered.length === 0) return;
+    try {
+      const result = await resequenceRoute(plan.plan_id, routeId, {
+        ordered_stop_ids: ordered,
+        apply,
+      });
+      setPreviewByRoute((prev) => ({ ...prev, [routeId]: result }));
+      if (apply) {
+        const refreshed = await getPlan(plan.plan_id);
+        setPlan(refreshed);
+        await refresh();
+      }
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? "Failed to resequence route.");
+    }
+  };
 
   if (!planId) {
     return (
@@ -122,9 +261,7 @@ export function ResultsPage() {
   }
 
   const mapCenter: [number, number] =
-    plan && plan.routes[0]?.stops[0]
-      ? [Number(plan.routes[0].stops[0].lat), Number(plan.routes[0].stops[0].lon)]
-      : [1.3521, 103.8198];
+    mappedRoutes[0]?.points[0]?.coord.point ? (mappedRoutes[0].points[0].coord.point as [number, number]) : [1.3521, 103.8198];
 
   return (
     <div className="space-y-4">
@@ -172,8 +309,11 @@ export function ResultsPage() {
               </Card>
               <Card>
                 <CardContent className="p-4">
-                  <p className="text-xs uppercase text-muted-foreground">Total duration</p>
-                  <p className="text-xl font-bold">{Math.round(summary.totalDuration / 60)} min</p>
+                  <p className="text-xs uppercase text-muted-foreground">Total makespan</p>
+                  <p className="text-xl font-bold">
+                    {summary.makespan > 0 ? Math.round(summary.makespan / 60) : Math.round(summary.totalDuration / 60)} min
+                  </p>
+                  <p className="text-xs text-muted-foreground">Sum of vehicle durations: {Math.round(summary.totalDuration / 60)} min</p>
                 </CardContent>
               </Card>
               <Card>
@@ -233,32 +373,39 @@ export function ResultsPage() {
                     <div className="h-[360px] overflow-hidden rounded-xl border">
                       <MapContainer center={mapCenter} zoom={12}>
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-                        {selectedRoutes.map((route, routeIndex) => {
+                        {mappedRoutes.map((route, routeIndex) => {
                           const colorIndex = activeVehicle === "all" ? route.vehicle_idx : routeIndex;
+                          const polylinePoints = route.points
+                            .sort((a, b) => a.stop.sequence_idx - b.stop.sequence_idx)
+                            .map((entry) => entry.coord.point as [number, number]);
+                          if (polylinePoints.length < 2) {
+                            return null;
+                          }
                           return (
                             <Polyline
                               key={route.route_id}
-                              positions={route.stops.map((stop) => [stop.lat, stop.lon] as [number, number])}
+                              positions={polylinePoints}
                               pathOptions={{ color: routeColors[colorIndex % routeColors.length], weight: 4, opacity: 0.85 }}
                             />
                           );
                         })}
-                        {selectedRoutes.map((route) =>
-                          route.stops.map((stop) => (
+                        {mappedRoutes.map((route) =>
+                          route.points.map((entry) => (
                             <Marker
-                              key={`${route.route_id}-${stop.sequence_idx}`}
-                              position={[stop.lat, stop.lon]}
-                              icon={seqIcon(stop.sequence_idx)}
+                              key={`${route.route_id}-${entry.stop.sequence_idx}`}
+                              position={entry.coord.point as [number, number]}
+                              icon={seqIcon(entry.stop.sequence_idx)}
                             >
                               <Tooltip>
                                 <div className="space-y-1 text-xs">
-                                  <p className="font-semibold">{stop.stop_ref}</p>
-                                  <p>{stop.address}</p>
-                                  <p>ETA {toTime(stop.eta_iso)}</p>
+                                  <p className="font-semibold">{entry.stop.stop_ref}</p>
+                                  <p>{entry.stop.address}</p>
+                                  <p>ETA {toTime(entry.stop.eta_iso)}</p>
                                   <p>
-                                    TW {toTime(stop.arrival_window_start_iso)} - {toTime(stop.arrival_window_end_iso)}
+                                    TW {toTime(entry.stop.arrival_window_start_iso)} - {toTime(entry.stop.arrival_window_end_iso)}
                                   </p>
-                                  <p>Service {toTime(stop.service_start_iso)} - {toTime(stop.service_end_iso)}</p>
+                                  <p>Service {toTime(entry.stop.service_start_iso)} - {toTime(entry.stop.service_end_iso)}</p>
+                                  {entry.coord.warnings.includes("OUTSIDE_SINGAPORE") && <p className="text-warning">Outside SG bounds</p>}
                                 </div>
                               </Tooltip>
                             </Marker>
@@ -266,6 +413,18 @@ export function ResultsPage() {
                         )}
                       </MapContainer>
                     </div>
+
+                    {(coordinateWarnings.invalid > 0 || coordinateWarnings.outsideSingapore > 0 || coordinateWarnings.swapped > 0) && (
+                      <div className="flex flex-wrap gap-2">
+                        {coordinateWarnings.invalid > 0 && <Badge variant="danger">Invalid coordinates: {coordinateWarnings.invalid}</Badge>}
+                        {coordinateWarnings.swapped > 0 && (
+                          <Badge variant="warning">Lat/lon swapped and corrected: {coordinateWarnings.swapped}</Badge>
+                        )}
+                        {coordinateWarnings.outsideSingapore > 0 && (
+                          <Badge variant="warning">Outside Singapore bounds: {coordinateWarnings.outsideSingapore}</Badge>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap gap-3 text-xs">
                       {selectedRoutes.map((route, index) => (
@@ -283,38 +442,95 @@ export function ResultsPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Stop list</CardTitle>
-                    <CardDescription>Expand routes for sequence, ETA, and time windows.</CardDescription>
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <CardTitle>Stop list</CardTitle>
+                        <CardDescription>Expand routes for sequence, ETA, and time windows.</CardDescription>
+                      </div>
+                      <Button variant={editMode ? "secondary" : "outline"} onClick={() => setEditMode((prev) => !prev)}>
+                        {editMode ? "Exit edit mode" : "Edit mode"}
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {selectedRoutes.map((route) => {
                       const expanded = openStops[route.route_id] ?? true;
+                      const draftOrder = draftOrderByRoute[route.route_id] ?? [];
+                      const stopMap = new Map(route.stops.filter((s) => s.stop_id).map((stop) => [stop.stop_id as number, stop]));
+                      const preview = previewByRoute[route.route_id];
                       return (
                         <div key={route.route_id} className="space-y-2 rounded-xl border p-3">
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-semibold">Vehicle {route.vehicle_idx}</p>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setOpenStops((prev) => ({ ...prev, [route.route_id]: !expanded }))}
-                            >
-                              {expanded ? "Collapse" : "Expand"}
-                            </Button>
+                            <div className="flex gap-2">
+                              {editMode && activeVehicle !== "all" && (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => void requestResequence(route.route_id, false)}>
+                                    Recompute ETAs
+                                  </Button>
+                                  <Button size="sm" onClick={() => void requestResequence(route.route_id, true)}>
+                                    Apply changes
+                                  </Button>
+                                </>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setOpenStops((prev) => ({ ...prev, [route.route_id]: !expanded }))}
+                              >
+                                {expanded ? "Collapse" : "Expand"}
+                              </Button>
+                            </div>
                           </div>
+                          {preview?.violations?.length > 0 && (
+                            <div className="rounded-lg border border-warning/40 bg-warning/5 p-2 text-xs">
+                              <p className="font-semibold text-warning">Violations</p>
+                              <ul className="list-disc pl-4">
+                                {preview.violations.map((violation: any, index: number) => (
+                                  <li key={`${route.route_id}-violation-${index}`}>{violation.message}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                           {expanded && (
                             <div className="space-y-2">
-                              {route.stops.map((stop) => (
-                                <StopCard
-                                  key={`${route.route_id}-${stop.sequence_idx}-stop-card`}
-                                  sequence={stop.sequence_idx}
-                                  stopRef={stop.stop_ref}
-                                  address={stop.address}
-                                  eta={toTime(stop.eta_iso)}
-                                  timeWindow={`${toTime(stop.arrival_window_start_iso)} - ${toTime(stop.arrival_window_end_iso)}`}
-                                  serviceTime={`${toTime(stop.service_start_iso)} - ${toTime(stop.service_end_iso)}`}
-                                  isDepot={stop.stop_ref === "DEPOT"}
-                                />
-                              ))}
+                              {editMode && activeVehicle !== "all" ? (
+                                <DndContext
+                                  sensors={sensors}
+                                  collisionDetection={closestCenter}
+                                  onDragEnd={(event) => onDragEnd(route.route_id, Number(event.active.id), event.over ? Number(event.over.id) : undefined)}
+                                >
+                                  <SortableContext items={draftOrder} strategy={verticalListSortingStrategy}>
+                                    <div className="space-y-2">
+                                      {draftOrder.map((stopId, idx) => {
+                                        const stop = stopMap.get(stopId);
+                                        if (!stop) return null;
+                                        return (
+                                          <SortableStopRow
+                                            key={`sortable-${route.route_id}-${stopId}`}
+                                            id={stopId}
+                                            label={`${idx + 1}. ${stop.stop_ref}`}
+                                            subtitle={`${stop.address} | ETA ${toTime(stop.eta_iso)}`}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                  </SortableContext>
+                                </DndContext>
+                              ) : (
+                                route.stops.map((stop) => (
+                                  <StopCard
+                                    key={`${route.route_id}-${stop.sequence_idx}-stop-card`}
+                                    sequence={stop.sequence_idx}
+                                    stopRef={stop.stop_ref}
+                                    address={stop.address}
+                                    eta={toTime(stop.eta_iso)}
+                                    timeWindow={`${toTime(stop.arrival_window_start_iso)} - ${toTime(stop.arrival_window_end_iso)}`}
+                                    serviceTime={`${toTime(stop.service_start_iso)} - ${toTime(stop.service_end_iso)}`}
+                                    isDepot={stop.stop_ref === "DEPOT"}
+                                  />
+                                ))
+                              )}
                             </div>
                           )}
                         </div>
@@ -386,7 +602,10 @@ export function ResultsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <Button size="lg" onClick={() => window.open(getExportUrl(plan.plan_id, "pdf", { profile: "driver" }), "_blank")}>
+                  <Button
+                    size="lg"
+                    onClick={() => void queuePdfExport()}
+                  >
                     <Download className="mr-2 h-4 w-4" /> Download Combined Driver Pack (PDF)
                   </Button>
                   <Button size="lg" variant="outline" onClick={() => window.open(getExportUrl(plan.plan_id, "csv", { profile: "planner" }), "_blank")}>
@@ -395,10 +614,16 @@ export function ResultsPage() {
                   <Button size="lg" variant="outline" onClick={() => window.open(getDriverCsvUrl(plan.plan_id), "_blank")}>
                     <Download className="mr-2 h-4 w-4" /> Download Driver CSV
                   </Button>
-                  <Button size="lg" variant="secondary" onClick={() => window.open(getMapSnapshotUrl(plan.plan_id), "_blank")}>
+                  <Button size="lg" variant="secondary" onClick={() => window.open(getMapPngUrl(plan.plan_id, { mode: "all" }), "_blank")}>
                     <Navigation2 className="mr-2 h-4 w-4" /> Preview map snapshot
                   </Button>
                 </div>
+                {exportJob && (
+                  <div className="rounded-lg border bg-muted/20 p-3 text-sm">
+                    <p className="font-semibold">Export job: {exportJob.progress}%</p>
+                    <p className="text-muted-foreground">{exportJob.message}</p>
+                  </div>
+                )}
 
                 <div className="space-y-2 rounded-xl border bg-muted/20 p-4 text-sm">
                   <p className="font-semibold">PDF includes</p>
@@ -417,9 +642,7 @@ export function ResultsPage() {
                       <Button
                         key={`pdf-${route.route_id}`}
                         variant="outline"
-                        onClick={() =>
-                          window.open(getExportUrl(plan.plan_id, "pdf", { profile: "driver", vehicleIdx: route.vehicle_idx }), "_blank")
-                        }
+                        onClick={() => void queuePdfExport(route.vehicle_idx)}
                       >
                         <RouteIcon className="mr-2 h-4 w-4" /> Vehicle {route.vehicle_idx}
                       </Button>
