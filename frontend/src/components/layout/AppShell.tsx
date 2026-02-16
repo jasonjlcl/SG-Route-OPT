@@ -25,6 +25,9 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <footer className="pb-6 text-center text-xs text-muted-foreground">
+        Developed by Jason Lim
+      </footer>
     </div>
   );
 }
