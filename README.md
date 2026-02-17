@@ -139,6 +139,8 @@ Open: `http://localhost:5173`
 Scripts:
 
 - Deploy: `infra/gcp/deploy.sh`
+- Deploy frontend (bash): `infra/gcp/deploy_frontend.sh`
+- Deploy frontend (PowerShell): `infra/gcp/deploy_frontend.ps1`
 - Teardown: `infra/gcp/teardown.sh`
 
 Deploy example:
@@ -155,6 +157,22 @@ export FEATURE_VERTEX_AI=false
 bash infra/gcp/deploy.sh
 ```
 
+Frontend deploy example (production static build):
+
+```powershell
+$env:GCP_PROJECT_ID="gen-lang-client-0328386378"
+$env:GCP_REGION="asia-southeast1"
+powershell -NoProfile -ExecutionPolicy Bypass -File infra/gcp/deploy_frontend.ps1
+```
+
+or:
+
+```bash
+export GCP_PROJECT_ID=gen-lang-client-0328386378
+export GCP_REGION=asia-southeast1
+bash infra/gcp/deploy_frontend.sh
+```
+
 Guardrails baked in:
 
 - Cloud Run `min-instances=0`, `max-instances=1`
@@ -169,13 +187,16 @@ Monitoring/alerting:
 - Active policy: `Cloud Run sg-route-opt-api - 5xx Error Rate > 5%`
 - Created as: `projects/gen-lang-client-0328386378/alertPolicies/4637109870947199083`
 
-## Current Production Snapshot (February 16, 2026)
+## Current Production Snapshot (February 17, 2026)
 
 - Project: `gen-lang-client-0328386378`
 - Region: `asia-southeast1`
 - Cloud Run service: `sg-route-opt-api`
 - URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`
-- Latest revision: `sg-route-opt-api-00021-cgm`
+- Frontend service: `sg-route-opt-web`
+- Webapp URL: `https://sg-route-opt-web-7wgewdyenq-as.a.run.app`
+- Latest API revision: `sg-route-opt-api-00024-gqk`
+- Latest frontend revision: `sg-route-opt-web-00003-hp4`
 - Queue: `routeapp-queue`
 - Scheduler job: `route-ml-drift-weekly`
 - Health endpoint: `GET /api/v1/health` returns `200` with `env=prod`
@@ -288,6 +309,15 @@ S1,10 Bayfront Avenue,,1,5,09:00,12:00,+65 81234567,Jason Tan
 S2,1 Raffles Place,,2,8,10:00,15:30,,
 S3,,768024,1,6,09:30,16:00,91234567,Ops Desk
 ```
+
+### Sample Data Pack
+
+Ready-to-use datasets are in `sample_data/`:
+
+- `sample_data/stops_valid_small.csv` (12-stop clean dataset)
+- `sample_data/stops_valid_30.csv` (30-stop valid dataset)
+- `sample_data/stops_mixed_invalid.csv` (intentional validation failures)
+- `sample_data/README.md` (quick test flow)
 
 ## API Endpoints
 

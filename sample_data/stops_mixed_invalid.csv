@@ -1,0 +1,11 @@
+﻿stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end,phone,contact_name
+I001,10 Bayfront Avenue,,1,8,09:00,12:00,+65 8123 4567,Valid Row
+,1 Raffles Place,,2,10,09:30,13:30,+65 9123 4567,Missing Stop Ref
+I003,,,1,7,10:00,16:30,+65 8234 5678,Missing Address And Postal
+I004,2 Orchard Turn,,0,6,11:00,17:00,123,Invalid Phone Format
+I005,80 Marine Parade Road,440080,-3,9,09:00,18:00,+65 8456 7890,Negative Demand
+I006,1 HarbourFront Walk,,1,8,25:00,16:00,+65 8567 8901,Invalid Start Time
+I007,1 Vista Exchange Green,,1,7,09:30,08:30,+65 8678 9012,End Before Start
+I008,ABCDE,,2,10,11:00,18:00,+65 8789 0123,Weak Address
+I009,,079903,1,6,09:00,14:30,+65 8890 1234,Postal Only
+I010,1 Changi Business Park Crescent,,1,8,10:00,17:30,+65 8991 2345,Valid Row

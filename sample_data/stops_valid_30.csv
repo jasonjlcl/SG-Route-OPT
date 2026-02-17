@@ -1,0 +1,31 @@
+﻿stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end,phone,contact_name
+L001,10 Bayfront Avenue,,1,8,09:00,12:00,+65 83500878,Contact L001
+L002,1 Raffles Place,,2,10,09:15,13:00,+65 81488501,Contact L002
+L003,50 Nanyang Avenue,,1,7,09:30,15:30,+65 99406962,Contact L003
+L004,2 Orchard Turn,,1,6,10:00,17:00,+65 98553594,Contact L004
+L005,80 Marine Parade Road,,2,9,09:00,18:00,+65 88962681,Contact L005
+L006,1 HarbourFront Walk,,1,8,10:00,16:00,+65 91488577,Contact L006
+L007,1 Vista Exchange Green,,1,7,09:30,15:30,+65 94876048,Contact L007
+L008,1 Woodlands Square,,2,10,11:00,18:00,+65 85216581,Contact L008
+L009,3 Temasek Boulevard,,1,6,09:00,14:30,+65 80474875,Contact L009
+L010,1 Changi Business Park Crescent,,1,8,10:00,17:30,+65 93819044,Contact L010
+L011,18 Marina Gardens Drive,,1,6,09:00,12:30,+65 84193776,Contact L011
+L012,21 Jurong Gateway Road,,2,9,11:30,18:00,+65 82640810,Contact L012
+L013,8 Marina View,,1,7,09:00,13:00,+65 81091664,Contact L013
+L014,5 Shenton Way,,1,8,09:30,14:30,+65 85931718,Contact L014
+L015,1 North Buona Vista Drive,,2,10,10:00,17:00,+65 94988800,Contact L015
+L016,438 Alexandra Road,,1,7,09:00,16:00,+65 82334780,Contact L016
+L017,1 Pasir Ris Drive 4,,2,9,10:30,18:00,+65 95360260,Contact L017
+L018,1 Paya Lebar Link,,1,8,09:30,15:30,+65 92206658,Contact L018
+L019,6 Battery Road,,1,6,09:00,12:00,+65 99337461,Contact L019
+L020,9 Bishan Place,,2,9,11:00,18:00,+65 82474650,Contact L020
+L021,11 Tanjong Katong Road,,1,7,09:00,14:00,+65 95294264,Contact L021
+L022,2 Bukit Merah Central,,1,7,09:30,15:30,+65 83740670,Contact L022
+L023,1 Sengkang Square,,2,10,10:30,18:00,+65 94457404,Contact L023
+L024,60 Punggol East,,1,7,09:30,16:30,+65 89073424,Contact L024
+L025,21 Choa Chu Kang Avenue 4,,2,9,10:00,18:00,+65 93882230,Contact L025
+L026,3 Simei Street 6,,1,8,09:00,15:00,+65 98156107,Contact L026
+L027,1 Bedok North Street 1,,1,7,09:30,16:30,+65 93985362,Contact L027
+L028,2 Tampines Central 5,,2,10,10:30,18:00,+65 89347899,Contact L028
+L029,5 Yishun Central 1,,1,7,09:00,14:30,+65 99060117,Contact L029
+L030,930 Yishun Avenue 2,,2,9,10:00,18:00,+65 99165917,Contact L030

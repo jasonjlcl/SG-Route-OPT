@@ -1,0 +1,13 @@
+﻿stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end,phone,contact_name
+V001,10 Bayfront Avenue,,1,8,09:00,12:00,+65 8123 4567,Jason Lim
+V002,1 Raffles Place,,2,10,09:30,13:30,+65 9123 4567,Ops Desk
+V003,50 Nanyang Avenue,,1,7,10:00,16:30,+65 8234 5678,Driver A
+V004,2 Orchard Turn,,1,6,11:00,17:00,+65 8345 6789,Driver B
+V005,80 Marine Parade Road,,2,9,09:00,18:00,+65 8456 7890,Warehouse
+V006,1 HarbourFront Walk,,1,8,10:30,16:00,+65 8567 8901,Dispatch
+V007,1 Vista Exchange Green,,1,7,09:30,15:30,+65 8678 9012,Alex Tan
+V008,1 Woodlands Square,,2,10,11:00,18:00,+65 8789 0123,Maya Lim
+V009,3 Temasek Boulevard,,1,6,09:00,14:30,+65 8890 1234,Ravi Kumar
+V010,1 Changi Business Park Crescent,,1,8,10:00,17:30,+65 8991 2345,Front Desk
+V011,18 Marina Gardens Drive,,1,6,09:00,12:30,+65 9001 2345,Support
+V012,21 Jurong Gateway Road,,2,9,11:30,18:00,+65 9112 3456,Team Lead

@@ -1,6 +1,6 @@
 # Next Chat Context (SG-Route-OPT)
 
-## Current Snapshot (As Of February 16, 2026)
+## Current Snapshot (As Of February 17, 2026)
 - Repo: `c:\Users\User\OneDrive\Documents\FYP Documents\SG-Route-OPT`
 - Branch: `main` (tracking `origin/main`)
 - Remote: `origin` -> `https://github.com/jasonjlcl/SG-Route-OPT.git`
@@ -11,6 +11,7 @@
   - `1341d23` - scoped token for IAM signed URLs
   - `1a18553` - explicit API service account email for signing fallback
   - `a5e235c` - app-wide developer credit footer
+  - `(pending push)` - geocoding null-like input fix + frontend static Cloud Run deployment scripts
 
 ## What Is Implemented
 - Async optimize pipeline:
@@ -36,6 +37,9 @@
 - GCP scripts:
   - `infra/gcp/deploy.sh`
   - `infra/gcp/teardown.sh`
+  - `infra/gcp/deploy_frontend.sh`
+  - `infra/gcp/deploy_frontend.ps1`
+  - `infra/gcp/cloudbuild.frontend.yaml`
 
 ## Cloud Hardening Added
 - Health endpoint fix:
@@ -61,12 +65,16 @@ Project: `gen-lang-client-0328386378`
 Region: `asia-southeast1`  
 Service: `sg-route-opt-api`  
 URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`  
+Frontend service: `sg-route-opt-web`  
+Webapp URL: `https://sg-route-opt-web-7wgewdyenq-as.a.run.app`  
 Queue: `routeapp-queue`  
 Scheduler job: `route-ml-drift-weekly`  
-Latest revision: `sg-route-opt-api-00021-cgm`
+Latest API revision: `sg-route-opt-api-00024-gqk`  
+Latest frontend revision: `sg-route-opt-web-00003-hp4`
 
 ### Confirmed
 - `GET /api/v1/health` => `200` with `env=prod`
+- Frontend root URL returns `200` and serves static assets from Nginx (`/assets/*`), not Vite dev runtime.
 - Cloud Run scaling:
   - `maxScale=1`
   - `minScale` unset (effective `0`)
@@ -96,6 +104,7 @@ Latest revision: `sg-route-opt-api-00021-cgm`
 1. Optional platform hygiene: add GCP project `environment` tag once org-level IAM is available (`resourcemanager.tagKeys.create` and `resourcemanager.tagValueBindings.create`).
 2. Optional security hygiene: rotate OneMap credentials after sharing and add new `ONEMAP_PASSWORD` secret version.
 3. Optional alerting enhancement: add notification channels (email/Slack/PagerDuty) to alert policy.
+4. Optional custom domain mapping for `sg-route-opt-web` after user-verified domain is added to project.
 
 ## Working Tree Note
 - Keep generated file `frontend/tsconfig.tsbuildinfo` out of commits.
