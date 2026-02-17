@@ -10,6 +10,8 @@ from app.models import Dataset, Stop
 from app.services.onemap_client import get_onemap_client
 from app.utils.errors import AppError, log_error
 
+NULL_LIKE_TEXT = {"nan", "none", "null", "<na>"}
+
 
 def _normalize_wgs84(lat_value: Any, lon_value: Any) -> tuple[float, float]:
     try:
@@ -30,6 +32,17 @@ def _normalize_wgs84(lat_value: Any, lon_value: Any) -> tuple[float, float]:
         raise ValueError("Projected coordinates are not supported; use WGS84 decimal latitude/longitude")
 
     return lat, lon
+
+
+def _clean_query_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.lower() in NULL_LIKE_TEXT:
+        return None
+    return text
 
 
 def geocode_dataset(
@@ -60,7 +73,7 @@ def geocode_dataset(
 
     for idx, stop in enumerate(stops, start=1):
         # Prefer postal code when present because it is less ambiguous than free-text address.
-        query = stop.postal_code or stop.address
+        query = _clean_query_text(stop.postal_code) or _clean_query_text(stop.address)
         if not query:
             stop.geocode_status = "FAILED"
             stop.geocode_meta = json.dumps({"error": "Missing address and postal_code"})
@@ -80,10 +93,12 @@ def geocode_dataset(
             lat, lon = _normalize_wgs84(first.get("LATITUDE"), first.get("LONGITUDE"))
             stop.lat = lat
             stop.lon = lon
-            if first.get("ADDRESS"):
-                stop.address = first.get("ADDRESS")
-            if first.get("POSTAL"):
-                stop.postal_code = first.get("POSTAL")
+            resolved_address = _clean_query_text(first.get("ADDRESS"))
+            resolved_postal = _clean_query_text(first.get("POSTAL"))
+            if resolved_address:
+                stop.address = resolved_address
+            if resolved_postal:
+                stop.postal_code = resolved_postal
             stop.geocode_status = "SUCCESS"
             source = "mock" if str(first.get("MOCK", "")).lower() == "true" else "onemap"
             stop.geocode_meta = json.dumps({"source": source, "query": query})
@@ -146,7 +161,7 @@ def manual_resolve_stop(
         db.commit()
         return {"stop_id": stop.id, "status": stop.geocode_status, "lat": stop.lat, "lon": stop.lon}
 
-    query = corrected_address or corrected_postal_code
+    query = _clean_query_text(corrected_address) or _clean_query_text(corrected_postal_code)
     if not query:
         raise AppError(
             message="Provide corrected_address/corrected_postal_code or lat/lon",
@@ -171,8 +186,8 @@ def manual_resolve_stop(
     lat, lon = _normalize_wgs84(first.get("LATITUDE"), first.get("LONGITUDE"))
     stop.lat = lat
     stop.lon = lon
-    stop.address = first.get("ADDRESS") or stop.address
-    stop.postal_code = first.get("POSTAL") or stop.postal_code
+    stop.address = _clean_query_text(first.get("ADDRESS")) or stop.address
+    stop.postal_code = _clean_query_text(first.get("POSTAL")) or stop.postal_code
     stop.geocode_status = "MANUAL"
     stop.geocode_meta = json.dumps({"source": "manual_search", "query": query})
     db.commit()

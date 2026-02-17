@@ -14,6 +14,7 @@ from app.utils.errors import AppError
 REQUIRED_BASE_COL = "stop_ref"
 OPTIONAL_COLS = ["address", "postal_code", "demand", "service_time_min", "tw_start", "tw_end", "phone", "contact_name"]
 ALL_COLS = [REQUIRED_BASE_COL] + OPTIONAL_COLS
+NULL_LIKE_TEXT = {"nan", "none", "null", "<na>"}
 
 
 @dataclass
@@ -77,6 +78,24 @@ def _parse_time(v: Any) -> str | None:
         return None
 
 
+def _clean_text(v: Any) -> str:
+    if v is None:
+        return ""
+    try:
+        if pd.isna(v):
+            return ""
+    except Exception:  # noqa: BLE001
+        pass
+    text = str(v).strip()
+    if text.lower() in NULL_LIKE_TEXT:
+        return ""
+    return text
+
+
+def _has_value(v: Any) -> bool:
+    return _clean_text(v) != ""
+
+
 def validate_rows(df: pd.DataFrame) -> ValidationResult:
     normalized_raw = df.rename(columns={col: str(col).strip().lower() for col in df.columns})
 
@@ -105,12 +124,12 @@ def validate_rows(df: pd.DataFrame) -> ValidationResult:
         row_idx = int(idx) + 2
         reasons: list[str] = []
 
-        stop_ref = str(row.get("stop_ref") or "").strip()
+        stop_ref = _clean_text(row.get("stop_ref"))
         if not stop_ref:
             reasons.append("stop_ref is required")
 
-        address = str(row.get("address") or "").strip()
-        postal_code = str(row.get("postal_code") or "").strip()
+        address = _clean_text(row.get("address"))
+        postal_code = _clean_text(row.get("postal_code"))
         if not address and not postal_code:
             reasons.append("address or postal_code is required")
 
@@ -137,22 +156,22 @@ def validate_rows(df: pd.DataFrame) -> ValidationResult:
         tw_start = _parse_time(row.get("tw_start"))
         tw_end = _parse_time(row.get("tw_end"))
 
-        if row.get("tw_start") not in (None, "") and tw_start is None:
+        if _has_value(row.get("tw_start")) and tw_start is None:
             reasons.append("tw_start must be HH:MM")
-        if row.get("tw_end") not in (None, "") and tw_end is None:
+        if _has_value(row.get("tw_end")) and tw_end is None:
             reasons.append("tw_end must be HH:MM")
 
         if tw_start and tw_end and tw_start >= tw_end:
             reasons.append("tw_start must be earlier than tw_end")
 
-        phone_raw = str(row.get("phone") or "").strip()
+        phone_raw = _clean_text(row.get("phone"))
         phone = None
         if phone_raw:
             phone = normalize_sg_phone(phone_raw)
             if phone is None:
                 reasons.append("phone must be +65XXXXXXXX or XXXXXXXX")
 
-        contact_name = str(row.get("contact_name") or "").strip()
+        contact_name = _clean_text(row.get("contact_name"))
 
         if reasons:
             invalid_rows.append(ValidationIssue(row_index=row_idx, reason="; ".join(reasons)))

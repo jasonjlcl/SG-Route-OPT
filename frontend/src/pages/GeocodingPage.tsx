@@ -1,7 +1,7 @@
 import L, { DivIcon } from "leaflet";
 import { CheckCircle2, LocateFixed, RefreshCcw, Search, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { MapContainer, Marker, TileLayer, Tooltip } from "react-leaflet";
+import { MapContainer, Marker, TileLayer, Tooltip, useMap } from "react-leaflet";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -36,6 +36,21 @@ function markerLabel(index: number): DivIcon {
     iconSize: [30, 30],
     iconAnchor: [15, 15],
   });
+}
+
+function FitMapToStops({ points }: { points: [number, number][] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (points.length === 0) return;
+    if (points.length === 1) {
+      map.setView(points[0], 13, { animate: false });
+      return;
+    }
+    map.fitBounds(L.latLngBounds(points), { padding: [24, 24], animate: false });
+  }, [map, points]);
+
+  return null;
 }
 
 export function GeocodingPage() {
@@ -197,6 +212,7 @@ export function GeocodingPage() {
     [stops]
   );
   const mapStops = stopCoordinateChecks.filter((entry) => entry.coord.isValid && entry.coord.point);
+  const mapPoints = useMemo(() => mapStops.map((entry) => entry.coord.point as [number, number]), [mapStops]);
   const swappedCount = stopCoordinateChecks.filter((entry) => entry.coord.warnings.includes("SWAPPED_INPUT")).length;
   const outOfSingaporeCount = mapStops.filter((entry) => entry.coord.warnings.includes("OUTSIDE_SINGAPORE")).length;
   const invalidCount = stopCoordinateChecks.filter((entry) => !entry.coord.isValid && (entry.stop.lat !== null || entry.stop.lon !== null)).length;
@@ -331,7 +347,9 @@ export function GeocodingPage() {
                   return (
                     <TableRow key={stop.id}>
                       <TableCell className="font-medium">{stop.stop_ref}</TableCell>
-                      <TableCell className="max-w-[280px] truncate">{stop.address ?? stop.postal_code ?? "--"}</TableCell>
+                      <TableCell className="max-w-[280px] truncate" title={stop.address ?? stop.postal_code ?? "--"}>
+                        {stop.address ?? stop.postal_code ?? "--"}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={isFailed ? "danger" : isManual ? "warning" : "success"}>{stop.geocode_status.toLowerCase()}</Badge>
                       </TableCell>
@@ -365,7 +383,8 @@ export function GeocodingPage() {
             <CardDescription>Stops visible for current filter: {stops.length}</CardDescription>
           </CardHeader>
           <CardContent className="h-[540px] pt-0">
-            <MapContainer center={mapCenter} zoom={11} className="rounded-xl border">
+            <MapContainer center={mapCenter} zoom={11} className="h-full w-full rounded-xl border">
+              <FitMapToStops points={mapPoints} />
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
               {mapStops.map((entry, index) => (
                 <Marker key={entry.stop.id} position={entry.coord.point as [number, number]} icon={markerLabel(index)}>
