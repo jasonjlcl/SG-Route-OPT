@@ -1,110 +1,180 @@
 # Next Chat Context (SG-Route-OPT)
 
-## Current Snapshot (As Of February 17, 2026)
-- Repo: `c:\Users\User\OneDrive\Documents\FYP Documents\SG-Route-OPT`
+## Date + Purpose
+- Context timestamp: February 17, 2026 (local)
+- Purpose: handoff after committing Google traffic-aware reference integration, ML uplift pipeline, evaluation harness/UI, and docs updates.
+
+## Repository Snapshot
+- Repo path: `c:\Users\User\OneDrive\Documents\FYP Documents\SG-Route-OPT`
 - Branch: `main` (tracking `origin/main`)
-- Remote: `origin` -> `https://github.com/jasonjlcl/SG-Route-OPT.git`
-- Latest pushed cloud-fix commits:
-  - `fa5b46e` - fix `/api/v1/health` response validation failure
-  - `1559d0a` - cloud signing/deploy env hardening
-  - `a58638b` - Cloud Tasks OIDC act-as IAM + fallback logging
-  - `1341d23` - scoped token for IAM signed URLs
-  - `1a18553` - explicit API service account email for signing fallback
-  - `a5e235c` - app-wide developer credit footer
-  - `(pending push)` - geocoding null-like input fix + frontend static Cloud Run deployment scripts
+- Remote: `origin -> https://github.com/jasonjlcl/SG-Route-OPT.git`
 
-## What Is Implemented
-- Async optimize pipeline:
-  - `POST /api/v1/jobs/optimize`
-  - `POST /tasks/handle`
-  - Step chain: `GEOCODE -> BUILD_MATRIX -> OPTIMIZE -> GENERATE_EXPORTS`
-  - Job fields: `current_step`, `progress_pct`, `steps`, `error_code`, `error_detail`
-- MLOps:
-  - `GET/POST /api/v1/ml/config`
-  - `POST /api/v1/ml/drift-report`
-  - `POST /api/v1/ml/models/train/vertex`
-  - Model versioning + rollout/canary support
-- Results UI:
-  - Resequence preview/revert/apply
-  - Violation badges/tooltips
-  - Makespan + sum-duration summary
-- Phone:
-  - SG validation/normalization
-  - Driver call action is `tel:` only
-- Export:
-  - Static map + driver PDF flow integrated
-  - GCS upload + signed URL generation in Cloud Run via IAM fallback
-- GCP scripts:
-  - `infra/gcp/deploy.sh`
-  - `infra/gcp/teardown.sh`
-  - `infra/gcp/deploy_frontend.sh`
-  - `infra/gcp/deploy_frontend.ps1`
-  - `infra/gcp/cloudbuild.frontend.yaml`
+### Latest Commits (Most Recent First)
+- `fd41dde` — docs: update env setup and demo instructions for uplift/evaluation
+- `510e4a9` — feat(frontend): add evaluation dashboard and ML uplift ETA indicators
+- `04d9ce1` — feat(backend): add Google Routes provider, ML uplift pipeline, and evaluation jobs
 
-## Cloud Hardening Added
-- Health endpoint fix:
-  - `backend/app/api/health.py` response type corrected to prevent `ResponseValidationError` 500.
-- Deploy script fixes:
-  - `infra/gcp/deploy.sh` uses `--update-env-vars` (prevents wiping runtime env vars).
-  - Added IAM bindings for:
-    - `roles/iam.serviceAccountTokenCreator` on API SA
-    - `roles/iam.serviceAccountUser` on Tasks SA for API SA
-  - Added `API_SERVICE_ACCOUNT_EMAIL` env var injection.
-- Cloud Tasks robustness:
-  - `backend/app/services/cloud_tasks.py` now logs enqueue fallback reason.
-- Signed URL robustness:
-  - `backend/app/services/storage.py` falls back to IAM signing with scoped credentials.
-  - Uses configured `API_SERVICE_ACCOUNT_EMAIL` when metadata credential email is `default`.
+## Current Working Tree
+Modified files (intentionally left uncommitted):
+- `NEXT_CHAT_CONTEXT.md` (this handoff update)
+- `frontend/tsconfig.tsbuildinfo` (generated; do not commit)
+- `frontend/vite.config.ts` (existing line-ending/worktree noise; avoid functional changes)
 
-## Local Validation Status
-- Backend tests: `.\.venv\Scripts\python.exe -m pytest -q backend/app/tests` => pass (`21 passed`)
-- Frontend tests/build: previously validated pass
+## Implemented in This Session
 
-## Cloud Deployment Status (Live)
-Project: `gen-lang-client-0328386378`  
-Region: `asia-southeast1`  
-Service: `sg-route-opt-api`  
-URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`  
-Frontend service: `sg-route-opt-web`  
-Webapp URL: `https://sg-route-opt-web-7wgewdyenq-as.a.run.app`  
-Queue: `routeapp-queue`  
-Scheduler job: `route-ml-drift-weekly`  
-Latest API revision: `sg-route-opt-api-00024-gqk`  
-Latest frontend revision: `sg-route-opt-web-00003-hp4`
+### 1) Backend: Google Routes Provider (Reference Traffic)
+- Added provider module with strict field masks and structured fallback errors:
+  - `backend/app/providers/google_routes.py`
+- Supports:
+  - `compute_routes(...)` with leg `duration` + `staticDuration` + `distanceMeters`
+  - `compute_route_matrix(...)` with guardrails
+  - token-bucket rate limiting, retry/backoff, TTL leg cache
+- Added compatibility bridge for existing optimization code:
+  - `backend/app/services/traffic_provider_google.py`
 
-### Confirmed
-- `GET /api/v1/health` => `200` with `env=prod`
-- Frontend root URL returns `200` and serves static assets from Nginx (`/assets/*`), not Vite dev runtime.
-- Cloud Run scaling:
-  - `maxScale=1`
-  - `minScale` unset (effective `0`)
-- Cloud Tasks queue throttling:
-  - `maxConcurrentDispatches=1`
-  - `maxDispatchesPerSecond=1`
-- Scheduler weekly job exists with OIDC service account
-- Scheduler token enforcement is active on `/api/v1/ml/drift-report` (manual scheduler run returns `200`)
-- `/tasks/handle` auth path active:
-  - unauthenticated manual request => `401`
-  - production-format Cloud Tasks callbacks => `200` (Google-Cloud-Tasks user-agent)
-- Real optimize job validated end-to-end:
-  - reached `SUCCEEDED`
-  - exports generated
-  - map/PDF signed URLs present
-- Monitoring policy enabled:
-  - `projects/gen-lang-client-0328386378/alertPolicies/4637109870947199083`
-  - Trigger: Cloud Run 5xx error rate > 5% for 5 minutes
+### 2) Backend: Feature Flags + Env Alignment
+Added/updated settings for required flags and aliases:
+- `FEATURE_GOOGLE_TRAFFIC`
+- `GOOGLE_ROUTES_API_KEY` (preferred, server-side)
+- `GOOGLE_MAPS_API_KEY` (legacy alias)
+- `GOOGLE_ROUTING_PREFERENCE`
+- `GOOGLE_MATRIX_MAX_ELEMENTS`
+- `GOOGLE_CACHE_TTL_SECONDS`
+- `GOOGLE_TIMEOUT_SECONDS`
+- `GOOGLE_RATE_LIMIT_QPS`
+- `FEATURE_ML_UPLIFT`
+- `FEATURE_EVAL_DASHBOARD`
 
-## Secret Manager State
-- `MAPS_STATIC_API_KEY`: versions exist
-- `ONEMAP_EMAIL`: secret exists, versions count = `1`
-- `ONEMAP_PASSWORD`: secret exists, versions count = `1`
-- `scheduler_token`: secret exists, latest version bound to Cloud Run + Scheduler header
+Files:
+- `backend/app/utils/settings.py`
+- `.sample.env`
 
-## Open Follow-ups
-1. Optional platform hygiene: add GCP project `environment` tag once org-level IAM is available (`resourcemanager.tagKeys.create` and `resourcemanager.tagValueBindings.create`).
-2. Optional security hygiene: rotate OneMap credentials after sharing and add new `ONEMAP_PASSWORD` secret version.
-3. Optional alerting enhancement: add notification channels (email/Slack/PagerDuty) to alert policy.
-4. Optional custom domain mapping for `sg-route-opt-web` after user-verified domain is added to project.
+### 3) Backend: ML Uplift Pipeline
+Added new uplift package and scripts:
+- `backend/app/ml_uplift/`:
+  - `schema.py`, `features.py`, `storage.py`, `model.py`
+  - `collect_samples.py`, `train.py`
+- module wrappers for execution:
+  - `python -m ml_uplift.collect_samples`
+  - `python -m ml_uplift.train`
+- entrypoint wrappers:
+  - `backend/ml_uplift/collect_samples.py`
+  - `backend/ml_uplift/train.py`
+- data path scaffold:
+  - `backend/data/ml_uplift/samples.csv`
+- service integration:
+  - `backend/app/services/ml_uplift.py`
 
-## Working Tree Note
-- Keep generated file `frontend/tsconfig.tsbuildinfo` out of commits.
+### 4) Backend: Optimizer + ETA Integration
+- Integrated uplift factor inference into matrix building behind `FEATURE_ML_UPLIFT`.
+- Added bounded congestion factors and matrix strategy metadata.
+- Post-optimization ETA refinement now uses Google route legs (`duration` and `staticDuration`) where available.
+- Added sample logging from refined Google legs for uplift training rows.
+- Maintains fallback behavior when Google is unavailable.
+
+Main file:
+- `backend/app/services/optimization.py`
+
+### 5) Backend: Evaluation Harness + API
+Added prediction-level and planning-level proof module:
+- `backend/app/services/ml_uplift_evaluation.py`
+  - prediction metrics (baseline static vs ML uplift against Google reference samples)
+  - planning KPI simulation (late stops, on-time rate, overtime, makespan)
+  - report ZIP generation (JSON + CSV)
+
+Added API and job wiring:
+- `backend/app/api/evaluation.py`
+- `backend/app/services/job_tasks.py` (job type `ML_UPLIFT_EVAL`)
+- `backend/app/main.py` and `backend/app/api/__init__.py` router wiring
+
+### 6) Backend: Existing API/Schema/Model Wiring
+Extended prior live-traffic and ETA-source wiring:
+- `use_live_traffic` request plumbing in optimize/resequence paths
+- plan metadata fields (`eta_source`, `traffic_timestamp_iso`, `live_traffic_requested`)
+- schema propagation of ETA metadata and warnings
+- health flags now include:
+  - `feature_google_traffic`
+  - `feature_ml_uplift`
+  - `feature_eval_dashboard`
+
+Files include:
+- `backend/app/api/datasets.py`
+- `backend/app/api/jobs.py`
+- `backend/app/api/plans.py`
+- `backend/app/models/entities.py`
+- `backend/app/schemas/api.py`
+- `backend/app/services/job_pipeline.py`
+- `backend/app/utils/db.py`
+- `backend/app/api/health.py`
+
+### 7) Frontend: Evaluation Dashboard + ETA Labels
+Added new route/page:
+- `/evaluation`
+- `frontend/src/pages/EvaluationPage.tsx`
+
+Updated frontend API/types and nav:
+- `frontend/src/api.ts`
+- `frontend/src/types.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/components/layout/TopBar.tsx`
+
+Updated optimization/results UX labels:
+- `frontend/src/pages/OptimizationPage.tsx`
+- `frontend/src/pages/ResultsPage.tsx`
+
+### 8) Tests Added/Updated
+- `backend/app/tests/test_google_traffic.py`
+- `backend/app/tests/test_ml_uplift_and_evaluation.py`
+- `backend/app/tests/test_health.py`
+
+## Validation Status
+
+### Backend tests run
+1. `\.\.venv-backend\Scripts\python.exe -m pytest backend/app/tests/test_google_traffic.py backend/app/tests/test_resequence.py backend/app/tests/test_jobs.py backend/app/tests/test_health.py backend/app/tests/test_ml_uplift_and_evaluation.py`
+- Result: `11 passed`
+
+2. `\.\.venv-backend\Scripts\python.exe -m pytest backend/app/tests/test_ml_evaluation_and_ab.py`
+- Result: `2 passed`
+
+### Frontend build
+- `cd frontend && npm run build`
+- Result: success (existing chunk-size warning remains non-blocking)
+
+## Deployment/Runtime Env Vars (Key Set)
+Set in Cloud Run service env/secrets:
+- `FEATURE_GOOGLE_TRAFFIC`
+- `GOOGLE_ROUTES_API_KEY` (preferred secret)
+- `GOOGLE_ROUTING_PREFERENCE`
+- `GOOGLE_MATRIX_MAX_ELEMENTS`
+- `GOOGLE_CACHE_TTL_SECONDS`
+- `GOOGLE_TIMEOUT_SECONDS`
+- `GOOGLE_RATE_LIMIT_QPS`
+- `FEATURE_ML_UPLIFT`
+- `FEATURE_EVAL_DASHBOARD`
+
+Legacy aliases still recognized:
+- `GOOGLE_MAPS_API_KEY`
+- `GOOGLE_TRAFFIC_MODE`
+- `GOOGLE_MAX_ELEMENTS_PER_JOB`
+
+## Suggested Next Chat Objectives
+1. Push local commits to remote (if not already pushed) and verify GitHub branch state.
+2. Deploy backend/frontend with new env vars enabled in Cloud Run.
+3. Run interview demo flow:
+   - optimize baseline vs uplift
+   - show `/evaluation` KPI deltas + report ZIP
+   - show ETA source badges in `/results`
+4. Verify Google quota/auth behavior and fallback telemetry in production.
+5. Configure custom domain + managed SSL (still pending from prior context).
+
+## Quick Commands
+- Run targeted backend tests:
+  - `\.\.venv-backend\Scripts\python.exe -m pytest backend/app/tests/test_google_traffic.py backend/app/tests/test_resequence.py backend/app/tests/test_jobs.py backend/app/tests/test_health.py backend/app/tests/test_ml_uplift_and_evaluation.py`
+- Run frontend build:
+  - `cd frontend && npm run build`
+- Backend dev server:
+  - `cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
+- Frontend dev server:
+  - `cd frontend && npm run dev`
+- Show latest commits:
+  - `git log --oneline -n 5`
