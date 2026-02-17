@@ -42,7 +42,7 @@ Design system files:
 - Cache/Queue: Redis + RQ (legacy/background ML jobs) and Cloud Tasks-compatible async step pipeline for optimize flow
 - Static map rendering: Google Static Maps API (preferred) with Playwright/fallback renderer when key is absent
 - Frontend: React + Vite + TypeScript + React-Leaflet
-- External APIs: OneMap Search + OneMap Routing (mock mode if creds missing)
+- External APIs: OneMap Search + OneMap Routing (mock mode if creds missing), optional Google Routes traffic-aware ETA
 
 ## Repo Structure
 
@@ -78,6 +78,19 @@ Core env vars:
 - `MAPS_STATIC_API_KEY`
 - `ONEMAP_EMAIL`
 - `ONEMAP_PASSWORD`
+- `FEATURE_GOOGLE_TRAFFIC` (`true`/`false`, default `false`)
+- `FEATURE_ML_UPLIFT` (`true`/`false`, default `false`)
+- `FEATURE_EVAL_DASHBOARD` (`true`/`false`, default `false`)
+- `GOOGLE_ROUTES_API_KEY` (server-side only; preferred)
+- `GOOGLE_MAPS_API_KEY` (legacy alias; server-side only)
+- `GOOGLE_ROUTES_REGION` (label/config, default `asia-southeast1`)
+- `GOOGLE_ROUTING_PREFERENCE` (`TRAFFIC_AWARE` or `TRAFFIC_AWARE_OPTIMAL`)
+- `GOOGLE_MATRIX_MAX_ELEMENTS` (default `25`, matrix guardrail)
+- `GOOGLE_CACHE_TTL_SECONDS` (default `600`)
+- `GOOGLE_TRAFFIC_MODE` (legacy alias for routing preference)
+- `GOOGLE_MAX_ELEMENTS_PER_JOB` (legacy alias for matrix cap)
+- `GOOGLE_TIMEOUT_SECONDS` (default `20`)
+- `GOOGLE_RATE_LIMIT_QPS` (default `5`)
 
 ML and rollout options:
 
@@ -229,6 +242,7 @@ Monitoring/alerting:
 
 4. Optimize (`/optimization`)
 - Configure depot, fleet, workday, solver options
+- Optional toggle: `Use live traffic (Google)` (shown only when backend feature flag is enabled)
 - Run optimization (background pipeline job with steps: `GEOCODE -> BUILD_MATRIX -> OPTIMIZE -> GENERATE_EXPORTS`)
 - If infeasible, apply suggestion chips and rerun
 - Watch solver/matrix progress and resume after navigation
@@ -237,9 +251,17 @@ Monitoring/alerting:
 
 5. Results (`/results`)
 - Planner View: map + route cards + stop sequence
+- ETA source badge: `Google traffic / ML uplift / ML baseline / OneMap`
+- Traffic timestamp shown when Google traffic ETAs are used
+- Non-blocking warning when Google traffic falls back to baseline ETAs
 - Planner Edit Mode: drag-drop stop resequencing + ETA recompute + violations
 - Driver View: mobile-friendly route sheet (large text/tap targets)
 - Exports tab: PDF/CSV outputs
+
+6. Evaluation (`/evaluation`, feature-flagged)
+- Prediction-level metrics: compare `static_duration` baseline vs `ML uplift` against Google traffic reference samples
+- Planning-level metrics: compare baseline vs ML uplift plans under Google-reference simulation
+- KPI report package download (JSON + CSV in ZIP)
 
 ## Driver Pack Exports
 
@@ -383,7 +405,8 @@ curl -X POST "http://localhost:8000/api/v1/datasets/1/optimize" \
     "fleet": {"num_vehicles": 2, "capacity": 25},
     "workday_start": "08:00",
     "workday_end": "18:00",
-    "solver": {"solver_time_limit_s": 15, "allow_drop_visits": true}
+    "solver": {"solver_time_limit_s": 15, "allow_drop_visits": true},
+    "use_live_traffic": true
   }'
 # => { "job_id": "...", ... }
 curl "http://localhost:8000/api/v1/jobs/<job_id>"
@@ -401,9 +424,33 @@ curl -X POST "http://localhost:8000/api/v1/jobs/optimize" \
     "fleet_config": {"num_vehicles": 2, "capacity": 25},
     "workday_start": "08:00",
     "workday_end": "18:00",
-    "solver": {"solver_time_limit_s": 20, "allow_drop_visits": true}
+    "solver": {"solver_time_limit_s": 20, "allow_drop_visits": true},
+    "use_live_traffic": true
   }'
 ```
+
+## Google Traffic Awareness
+
+Enable traffic-aware ETAs (server-side only):
+
+```bash
+export FEATURE_GOOGLE_TRAFFIC=true
+export GOOGLE_ROUTES_API_KEY=your_server_side_key
+export GOOGLE_ROUTING_PREFERENCE=TRAFFIC_AWARE
+```
+
+Recommended API key restrictions:
+
+- Restrict key to **Routes API** only.
+- Restrict by service account/IP/network perimeter where possible.
+- Do not expose Google API keys to frontend env vars.
+
+Demo script:
+
+1. Turn `Use live traffic (Google)` ON in `/optimization` and run optimize.
+2. Open `/results` and confirm badge shows `ETA source: Google traffic`.
+3. Turn toggle OFF, rerun optimize, confirm badge changes to baseline source.
+4. Simulate quota/timeout and verify non-blocking fallback warning appears.
 
 ### Optimize A/B Simulation (Baseline vs ML)
 
@@ -451,6 +498,13 @@ Capabilities:
 - Baseline vs ML formal evaluation (`GET /api/v1/ml/evaluation/compare`)
 - Evaluation report package generation (`POST /api/v1/ml/evaluation/run`)
 - Daily monitoring + weekly retrain-if-needed scheduler (backend startup)
+
+Evaluation dashboard page: `/evaluation` (requires `FEATURE_EVAL_DASHBOARD=true`)
+
+API endpoints:
+
+- `GET /api/v1/evaluation/prediction?limit=5000`
+- `POST /api/v1/evaluation/run`
 
 ### Formal Evaluation KPIs
 
@@ -501,6 +555,25 @@ Each run writes:
 - `feature_schema.json`
 - `version.txt`
 
+### ML Uplift Data + Training Scripts
+
+Collect cost-aware Google samples:
+
+```bash
+cd backend
+python -m ml_uplift.collect_samples --dataset-id 1 --sample-elements 25
+```
+
+Train uplift model:
+
+```bash
+cd backend
+python -m ml_uplift.train --min-rows 120
+```
+
+Uplift samples are stored at `backend/data/ml_uplift/samples.csv`.
+Uplift artifacts are stored at `backend/app/ml_uplift/artifacts/`.
+
 ## Interview Demo Checklist
 
 1. Upload + validate
@@ -533,6 +606,12 @@ Each run writes:
 - Open `/ml`
 - Show model registry, rollout config, canary settings, and drift metrics
 - Run baseline vs ML evaluation and download report package
+
+7. ML Uplift Proof Page
+- Open `/evaluation`
+- Run evaluation for the current dataset
+- Show prediction-level MAE/MAPE delta and planning-level late stops/overtime delta
+- Download ZIP report and quote the summary sentence in slides/report
 
 ### View Job Progress
 

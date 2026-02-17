@@ -9,6 +9,7 @@ backend/test_app.db
 backend/app.db
 backend/.pytest_cache/
 backend/app/cache/
+backend/app/ml_uplift/artifacts/
 frontend/node_modules/
 frontend/dist/
 .env
