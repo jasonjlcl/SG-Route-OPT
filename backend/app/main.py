@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import datasets, health, jobs, ml, plans, stops, tasks
+from app.api import datasets, evaluation, health, jobs, ml, plans, stops, tasks
 from app.models import Base
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.utils.db import SessionLocal, engine, ensure_schema_compatibility
@@ -86,4 +86,5 @@ app.include_router(stops.router)
 app.include_router(plans.router)
 app.include_router(jobs.router)
 app.include_router(ml.router)
+app.include_router(evaluation.router)
 app.include_router(tasks.router)

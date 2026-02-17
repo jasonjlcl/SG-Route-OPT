@@ -1,0 +1,1 @@
+origin_lat,origin_lng,dest_lat,dest_lng,origin_zone,dest_zone,distance_m,departure_time_iso,time_bucket,dow_bucket,static_duration_s,duration_s,congestion_factor

@@ -90,6 +90,9 @@ class Plan(Base):
     workday_start: Mapped[str | None] = mapped_column(String(5), nullable=True)
     workday_end: Mapped[str | None] = mapped_column(String(5), nullable=True)
     infeasibility_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    eta_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    traffic_timestamp_iso: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    live_traffic_requested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     dataset: Mapped[Dataset] = relationship("Dataset", back_populates="plans")
     routes: Mapped[list[Route]] = relationship("Route", back_populates="plan", cascade="all, delete-orphan")

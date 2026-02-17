@@ -9,6 +9,7 @@ from app.services.export import export_plan_pdf, generate_map_png
 from app.services.geocoding import geocode_dataset
 from app.services.jobs import set_job_status
 from app.services.ml_evaluation import build_evaluation_report_zip, compare_baseline_vs_model
+from app.services.ml_uplift_evaluation import build_uplift_evaluation_report_zip, run_uplift_evaluation
 from app.services.optimization import OptimizationPayload, optimize_dataset
 from app.services.optimization_experiments import build_ab_report_zip, run_ab_simulation
 from app.utils.db import SessionLocal
@@ -65,6 +66,7 @@ def _run_optimize(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
             workday_end=str(payload["workday_end"]),
             solver_time_limit_s=int(payload["solver_time_limit_s"]),
             allow_drop_visits=bool(payload["allow_drop_visits"]),
+            use_live_traffic=bool(payload.get("use_live_traffic", False)),
         )
         return optimize_dataset(db, dataset_id, optimize_payload, progress_cb=_progress(job_id))
     finally:
@@ -200,6 +202,46 @@ def _run_optimize_ab_simulation(job_id: str, payload: dict[str, Any]) -> dict[st
         db.close()
 
 
+def _run_ml_uplift_evaluation(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    db = SessionLocal()
+    try:
+        dataset_id = int(payload["dataset_id"])
+        optimize_payload = OptimizationPayload(
+            depot_lat=float(payload["depot_lat"]),
+            depot_lon=float(payload["depot_lon"]),
+            num_vehicles=int(payload["num_vehicles"]),
+            capacity=int(payload["capacity"]) if payload.get("capacity") is not None else None,
+            workday_start=str(payload["workday_start"]),
+            workday_end=str(payload["workday_end"]),
+            solver_time_limit_s=int(payload["solver_time_limit_s"]),
+            allow_drop_visits=bool(payload["allow_drop_visits"]),
+            use_live_traffic=False,
+        )
+        sample_limit = int(payload.get("sample_limit", 5000))
+        _progress(job_id)(5, "Running prediction and planning evaluation")
+        report = run_uplift_evaluation(
+            db,
+            dataset_id=dataset_id,
+            payload=optimize_payload,
+            limit=sample_limit,
+            progress_cb=_progress(job_id),
+        )
+        _progress(job_id)(85, "Building evaluation report artifacts")
+        zip_bytes = build_uplift_evaluation_report_zip(report)
+        out_name = f"ml_uplift_evaluation_{job_id}.zip"
+        out_path = EXPORT_CACHE_DIR / out_name
+        out_path.write_bytes(zip_bytes)
+        _progress(job_id)(100, "Evaluation report ready")
+        return {
+            "file_path": str(out_path),
+            "summary": report.get("summary"),
+            "prediction": report.get("prediction"),
+            "planning": report.get("planning"),
+        }
+    finally:
+        db.close()
+
+
 def run_job(*, job_id: str, job_type: str, payload: dict[str, Any]) -> None:
     db = SessionLocal()
     try:
@@ -226,6 +268,8 @@ def run_job(*, job_id: str, job_type: str, payload: dict[str, Any]) -> None:
             result = _run_ml_evaluation(job_id, payload)
         elif job_type == "OPTIMIZE_AB_SIMULATION":
             result = _run_optimize_ab_simulation(job_id, payload)
+        elif job_type == "ML_UPLIFT_EVAL":
+            result = _run_ml_uplift_evaluation(job_id, payload)
         else:
             raise AppError(message=f"Unsupported job type: {job_type}", error_code="JOB_TYPE_UNSUPPORTED", status_code=400)
 

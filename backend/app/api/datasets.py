@@ -115,6 +115,7 @@ def optimize(
                 workday_end=payload.workday_end,
                 solver_time_limit_s=payload.solver.solver_time_limit_s,
                 allow_drop_visits=payload.solver.allow_drop_visits,
+                use_live_traffic=payload.use_live_traffic,
             ),
         )
         return OptimizeResponse(**result).model_dump()
@@ -130,6 +131,7 @@ def optimize(
         workday_end=payload.workday_end,
         solver_time_limit_s=payload.solver.solver_time_limit_s,
         allow_drop_visits=payload.solver.allow_drop_visits,
+        use_live_traffic=payload.use_live_traffic,
     )
     return JobAcceptedResponse(job_id=job.id, type=job.type).model_dump()
 

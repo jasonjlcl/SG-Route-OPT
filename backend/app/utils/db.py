@@ -33,6 +33,12 @@ def ensure_schema_compatibility() -> None:
         alter_statements.append("ALTER TABLE plans ADD COLUMN workday_start VARCHAR(5)")
     if not has_column("plans", "workday_end"):
         alter_statements.append("ALTER TABLE plans ADD COLUMN workday_end VARCHAR(5)")
+    if not has_column("plans", "eta_source"):
+        alter_statements.append("ALTER TABLE plans ADD COLUMN eta_source VARCHAR(32)")
+    if not has_column("plans", "traffic_timestamp_iso"):
+        alter_statements.append("ALTER TABLE plans ADD COLUMN traffic_timestamp_iso VARCHAR(64)")
+    if not has_column("plans", "live_traffic_requested"):
+        alter_statements.append("ALTER TABLE plans ADD COLUMN live_traffic_requested BOOLEAN DEFAULT 0")
     if not has_column("stops", "phone"):
         alter_statements.append("ALTER TABLE stops ADD COLUMN phone VARCHAR(64)")
     if not has_column("stops", "contact_name"):

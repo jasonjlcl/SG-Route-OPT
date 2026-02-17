@@ -24,4 +24,7 @@ def health() -> dict[str, Any]:
         "status": "ok",
         "env": settings.app_env,
         "ml_needs_retrain": bool(monitoring.get("needs_retrain", False)),
+        "feature_google_traffic": bool(settings.feature_google_traffic),
+        "feature_ml_uplift": bool(settings.feature_ml_uplift),
+        "feature_eval_dashboard": bool(settings.feature_eval_dashboard),
     }

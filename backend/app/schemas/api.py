@@ -93,6 +93,7 @@ class OptimizeRequest(BaseModel):
     workday_start: str = "08:00"
     workday_end: str = "18:00"
     solver: SolverConfig = SolverConfig()
+    use_live_traffic: bool = False
 
 
 class OptimizeExperimentRequest(OptimizeRequest):
@@ -107,6 +108,18 @@ class OptimizeJobRequest(BaseModel):
     workday_start: str = "08:00"
     workday_end: str = "18:00"
     solver: SolverConfig = SolverConfig()
+    use_live_traffic: bool = False
+
+
+class EvaluationRunRequest(BaseModel):
+    dataset_id: int = Field(gt=0)
+    depot_lat: float = Field(ge=-90, le=90)
+    depot_lon: float = Field(ge=-180, le=180)
+    fleet_config: FleetConfig
+    workday_start: str = "08:00"
+    workday_end: str = "18:00"
+    solver: SolverConfig = SolverConfig()
+    sample_limit: int = Field(default=5000, ge=100, le=100000)
 
 
 class OptimizeResponse(BaseModel):
@@ -120,6 +133,10 @@ class OptimizeResponse(BaseModel):
     unserved_stop_ids: list[int] | None = None
     infeasibility_reason: str | None = None
     suggestions: list[str] | None = None
+    eta_source: Literal["google_traffic", "ml_uplift", "ml_baseline", "onemap"] | None = None
+    traffic_timestamp: str | None = None
+    live_traffic_requested: bool | None = None
+    warnings: list[str] | None = None
 
 
 class JobAcceptedResponse(BaseModel):
@@ -148,6 +165,7 @@ class ResequenceRequest(BaseModel):
     ordered_stop_ids: list[int]
     depart_time_iso: str | None = None
     apply: bool = False
+    use_live_traffic: bool | None = None
 
 
 class PlanDetailsResponse(BaseModel):
@@ -161,6 +179,9 @@ class PlanDetailsResponse(BaseModel):
     depot: dict[str, float]
     routes: list[dict[str, Any]]
     unserved_stops: list[dict[str, Any]]
+    eta_source: Literal["google_traffic", "ml_uplift", "ml_baseline", "onemap"] | None = None
+    traffic_timestamp: str | None = None
+    live_traffic_requested: bool = False
 
 
 class ExportFormat(str):

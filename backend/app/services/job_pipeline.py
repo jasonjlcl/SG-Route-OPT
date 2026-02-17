@@ -68,6 +68,7 @@ def _payload_to_optimization_payload(payload: dict[str, Any]) -> OptimizationPay
         workday_end=str(payload["workday_end"]),
         solver_time_limit_s=int(payload.get("solver_time_limit_s", 20)),
         allow_drop_visits=bool(payload.get("allow_drop_visits", True)),
+        use_live_traffic=bool(payload.get("use_live_traffic", False)),
     )
 
 
@@ -130,6 +131,7 @@ def create_optimize_pipeline_job(
     workday_end: str,
     solver_time_limit_s: int,
     allow_drop_visits: bool,
+    use_live_traffic: bool = False,
 ) -> Any:
     payload = {
         "dataset_id": dataset_id,
@@ -141,6 +143,7 @@ def create_optimize_pipeline_job(
         "workday_end": workday_end,
         "solver_time_limit_s": solver_time_limit_s,
         "allow_drop_visits": allow_drop_visits,
+        "use_live_traffic": bool(use_live_traffic),
     }
     job = create_job(db, job_type="OPTIMIZE", payload=payload)
     job.steps_json = json.dumps(_init_steps_state())

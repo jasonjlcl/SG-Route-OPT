@@ -134,4 +134,5 @@ def resequence_plan_route(
         ordered_stop_ids=payload.ordered_stop_ids,
         depart_time_iso=payload.depart_time_iso,
         apply_changes=payload.apply,
+        use_live_traffic=payload.use_live_traffic,
     )

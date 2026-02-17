@@ -40,6 +40,19 @@ class Settings(BaseSettings):
 
     feature_vertex_ai: bool = Field(default=False, alias="FEATURE_VERTEX_AI")
     vertex_model_display_name: str = Field(default="route-time-regressor", alias="VERTEX_MODEL_DISPLAY_NAME")
+    feature_google_traffic: bool = Field(default=False, alias="FEATURE_GOOGLE_TRAFFIC")
+    feature_ml_uplift: bool = Field(default=False, alias="FEATURE_ML_UPLIFT")
+    feature_eval_dashboard: bool = Field(default=False, alias="FEATURE_EVAL_DASHBOARD")
+    google_routes_api_key: str | None = Field(default=None, alias="GOOGLE_ROUTES_API_KEY")
+    google_maps_api_key: str | None = Field(default=None, alias="GOOGLE_MAPS_API_KEY")
+    google_routes_region: str = Field(default="asia-southeast1", alias="GOOGLE_ROUTES_REGION")
+    google_routing_preference: str = Field(default="TRAFFIC_AWARE", alias="GOOGLE_ROUTING_PREFERENCE")
+    google_matrix_max_elements: int = Field(default=25, alias="GOOGLE_MATRIX_MAX_ELEMENTS")
+    google_cache_ttl_seconds: int = Field(default=600, alias="GOOGLE_CACHE_TTL_SECONDS")
+    google_traffic_mode: str = Field(default="TRAFFIC_AWARE", alias="GOOGLE_TRAFFIC_MODE")
+    google_max_elements_per_job: int = Field(default=2500, alias="GOOGLE_MAX_ELEMENTS_PER_JOB")
+    google_timeout_seconds: int = Field(default=20, alias="GOOGLE_TIMEOUT_SECONDS")
+    google_rate_limit_qps: float = Field(default=5.0, alias="GOOGLE_RATE_LIMIT_QPS")
 
     cloud_tasks_queue: str = Field(default="route-jobs", alias="CLOUD_TASKS_QUEUE")
     cloud_tasks_service_account: str | None = Field(default=None, alias="CLOUD_TASKS_SERVICE_ACCOUNT")
@@ -53,6 +66,18 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [item.strip() for item in self.allowed_origins.split(",") if item.strip()]
+
+    @property
+    def resolved_google_routes_api_key(self) -> str | None:
+        return self.google_routes_api_key or self.google_maps_api_key
+
+    @property
+    def resolved_google_routing_preference(self) -> str:
+        return str(self.google_routing_preference or self.google_traffic_mode or "TRAFFIC_AWARE").upper()
+
+    @property
+    def resolved_google_matrix_max_elements(self) -> int:
+        return int(self.google_matrix_max_elements or self.google_max_elements_per_job or 25)
 
 
 @lru_cache(maxsize=1)

@@ -6,3 +6,6 @@ def test_health_endpoint_returns_200_with_boolean_flag(client):
     assert body["status"] == "ok"
     assert body["env"] == "test"
     assert isinstance(body["ml_needs_retrain"], bool)
+    assert isinstance(body["feature_google_traffic"], bool)
+    assert isinstance(body["feature_ml_uplift"], bool)
+    assert isinstance(body["feature_eval_dashboard"], bool)
