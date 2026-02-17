@@ -83,6 +83,9 @@ export type PlanDetails = {
     stop_ref: string;
     address: string | null;
   }[];
+  eta_source: "google_traffic" | "ml_uplift" | "ml_baseline" | "onemap" | null;
+  traffic_timestamp: string | null;
+  live_traffic_requested: boolean;
 };
 
 export type JobAccepted = {
@@ -132,4 +135,64 @@ export type MlEvaluationComparison = {
     model_mape_pct: number;
     mae_improvement_pct: number | null;
   }[];
+};
+
+export type HealthStatus = {
+  status: string;
+  env: string;
+  ml_needs_retrain: boolean;
+  feature_google_traffic: boolean;
+  feature_ml_uplift: boolean;
+  feature_eval_dashboard: boolean;
+};
+
+export type EvaluationPredictionMetrics = {
+  samples: number;
+  model_version: string | null;
+  baseline: string;
+  metrics: {
+    baseline_metrics: { mae_s: number; mape_pct: number };
+    ml_metrics: { mae_s: number; mape_pct: number };
+    mae_improvement_pct?: number | null;
+    mape_improvement_pct?: number | null;
+  };
+  segments: {
+    segment: string;
+    count: number;
+    baseline_mae_s: number;
+    ml_mae_s: number;
+    baseline_mape_pct: number;
+    ml_mape_pct: number;
+    mae_improvement_pct: number | null;
+    mape_improvement_pct: number | null;
+  }[];
+  note?: string;
+};
+
+export type EvaluationRunResult = {
+  summary?: string;
+  prediction?: EvaluationPredictionMetrics;
+  planning?: {
+    baseline: {
+      late_stops_count: number;
+      on_time_rate: number;
+      overtime_minutes: number;
+      makespan_s: number;
+    };
+    ml: {
+      late_stops_count: number;
+      on_time_rate: number;
+      overtime_minutes: number;
+      makespan_s: number;
+    };
+    comparison: {
+      key: string;
+      label: string;
+      baseline: number;
+      ml: number;
+      improvement_pct: number | null;
+      higher_is_better: boolean;
+    }[];
+    summary?: string;
+  };
 };

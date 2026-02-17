@@ -57,6 +57,14 @@ function slackRisk(route: PlanDetails["routes"][number]): "low" | "medium" | "hi
   return "low";
 }
 
+function etaSourceLabel(source: PlanDetails["eta_source"]): string {
+  if (source === "google_traffic") return "Google traffic";
+  if (source === "ml_uplift") return "ML uplift";
+  if (source === "onemap") return "OneMap";
+  if (source === "ml_baseline") return "ML baseline";
+  return "Unknown";
+}
+
 function SortableStopRow({
   id,
   label,
@@ -304,7 +312,16 @@ export function ResultsPage() {
           </TabsList>
 
           <TabsContent value="planner" className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {plan.live_traffic_requested && plan.eta_source !== "google_traffic" && (
+              <Card className="border-warning/40 bg-warning/5">
+                <CardContent className="flex items-center gap-2 p-4 text-sm">
+                  <TriangleAlert className="h-4 w-4 text-warning" />
+                  Google traffic unavailable; using baseline ETAs.
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
               <Card>
                 <CardContent className="p-4">
                   <p className="text-xs uppercase text-muted-foreground">Feasibility</p>
@@ -340,6 +357,19 @@ export function ResultsPage() {
                 <CardContent className="p-4">
                   <p className="text-xs uppercase text-muted-foreground">Estimated finish</p>
                   <p className="text-xl font-bold">{summary.finishTime}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-xs uppercase text-muted-foreground">ETA source</p>
+                  <div className="mt-1">
+                    <Badge variant="outline">ETA source: {etaSourceLabel(plan.eta_source)}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {plan.traffic_timestamp
+                      ? `Traffic timestamp: ${new Date(plan.traffic_timestamp).toLocaleString()}`
+                      : "Traffic timestamp: --"}
+                  </p>
                 </CardContent>
               </Card>
             </div>

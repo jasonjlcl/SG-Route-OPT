@@ -1,9 +1,9 @@
-import { Clock3, FlaskConical, Settings2, Sparkles, Wand2 } from "lucide-react";
+import { CircleHelp, Clock3, FlaskConical, Settings2, Sparkles, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { getJobFileUrl, optimizeDataset, startOptimizeAbTest } from "../api";
+import { getHealth, getJobFileUrl, optimizeDataset, startOptimizeAbTest } from "../api";
 import { useWorkflowContext } from "../components/layout/WorkflowContext";
 import { useJobStatus } from "../hooks/useJobStatus";
 import { EmptyState } from "../components/status/EmptyState";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 type OptimizationResult = {
   plan_id: number;
@@ -25,6 +26,10 @@ type OptimizationResult = {
   route_summary?: { vehicle_idx: number; stop_count: number; total_distance_m: number; total_duration_s: number }[];
   infeasibility_reason?: string;
   suggestions?: string[];
+  eta_source?: "google_traffic" | "ml_uplift" | "ml_baseline" | "onemap" | null;
+  traffic_timestamp?: string | null;
+  live_traffic_requested?: boolean;
+  warnings?: string[];
 };
 
 type AbSimulationResult = {
@@ -48,6 +53,8 @@ export function OptimizationPage() {
   const [workEnd, setWorkEnd] = useState("18:00");
   const [solverTimeLimit, setSolverTimeLimit] = useState("20");
   const [allowDrop, setAllowDrop] = useState(true);
+  const [featureGoogleTraffic, setFeatureGoogleTraffic] = useState(false);
+  const [useLiveTraffic, setUseLiveTraffic] = useState(false);
   const [experimentModelVersion, setExperimentModelVersion] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -73,6 +80,7 @@ export function OptimizationPage() {
       solver_time_limit_s: Number(solverTimeLimit),
       allow_drop_visits: allowDrop,
     },
+    use_live_traffic: featureGoogleTraffic && useLiveTraffic,
   });
 
   const loadFromJobResult = async (jobData: any) => {
@@ -84,6 +92,18 @@ export function OptimizationPage() {
       await refresh();
     }
   };
+
+  useEffect(() => {
+    const loadHealth = async () => {
+      try {
+        const health = await getHealth();
+        setFeatureGoogleTraffic(Boolean(health.feature_google_traffic));
+      } catch {
+        setFeatureGoogleTraffic(false);
+      }
+    };
+    void loadHealth();
+  }, []);
 
   useEffect(() => {
     if (activeJobId) {
@@ -104,6 +124,10 @@ export function OptimizationPage() {
       localStorage.removeItem("optimize_job_id");
       setActiveJobId(null);
       void loadFromJobResult(job);
+      const warnings = Array.isArray((job.result_ref as any)?.warnings) ? ((job.result_ref as any).warnings as string[]) : [];
+      if (warnings.length > 0) {
+        toast.warning("Baseline ETA fallback", { description: warnings[0] });
+      }
       toast.success("Optimization complete", { description: "Plan is ready in Results." });
     } else if (job.status === "FAILED") {
       localStorage.removeItem("optimize_job_id");
@@ -281,6 +305,27 @@ export function OptimizationPage() {
                 <input type="checkbox" checked={allowDrop} onChange={(event) => setAllowDrop(event.target.checked)} />
                 Allow dropped stops with penalty when full feasibility is impossible
               </label>
+
+              {featureGoogleTraffic && (
+                <div className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span>Use live traffic (Google)</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="text-muted-foreground">
+                            <CircleHelp className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Uses Google traffic-aware travel times. Falls back automatically if unavailable.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <input type="checkbox" checked={useLiveTraffic} onChange={(event) => setUseLiveTraffic(event.target.checked)} />
+                </div>
+              )}
 
               <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
                 <p className="mb-1 flex items-center gap-1 font-semibold text-foreground">

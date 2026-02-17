@@ -27,6 +27,9 @@ export function TopBar({ datasetId, planId, datasetStatus, onDatasetChange, onRe
           <Link to="/ml" className="text-sm text-primary underline-offset-2 hover:underline">
             ML Settings
           </Link>
+          <Link to="/evaluation" className="text-sm text-primary underline-offset-2 hover:underline">
+            Evaluation
+          </Link>
           <div className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1">
             <span className="text-xs text-muted-foreground">Dataset</span>
             <Input

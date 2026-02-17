@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { DatasetSummary, JobAccepted, JobStatus, PlanDetails, StopItem, UploadResponse } from "./types";
+import type { DatasetSummary, EvaluationPredictionMetrics, HealthStatus, JobAccepted, JobStatus, PlanDetails, StopItem, UploadResponse } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -54,6 +54,7 @@ export async function startOptimizeJob(payload: {
   workday_start: string;
   workday_end: string;
   solver: { solver_time_limit_s: number; allow_drop_visits: boolean };
+  use_live_traffic?: boolean;
 }) {
   const { data } = await api.post<JobAccepted>("/api/v1/jobs/optimize", payload);
   return data;
@@ -66,6 +67,11 @@ export async function startOptimizeAbTest(datasetId: number, payload: unknown): 
 
 export async function getPlan(planId: number): Promise<PlanDetails> {
   const { data } = await api.get<PlanDetails>(`/api/v1/plans/${planId}`);
+  return data;
+}
+
+export async function getHealth(): Promise<HealthStatus> {
+  const { data } = await api.get<HealthStatus>("/api/v1/health");
   return data;
 }
 
@@ -213,5 +219,26 @@ export async function startMlEvaluationReport(payload?: { days?: number; limit?:
     model_version: payload?.modelVersion ?? null,
   };
   const { data } = await api.post<JobAccepted>("/api/v1/ml/evaluation/run", body);
+  return data;
+}
+
+export async function getEvaluationPrediction(limit = 5000): Promise<EvaluationPredictionMetrics> {
+  const { data } = await api.get<EvaluationPredictionMetrics>("/api/v1/evaluation/prediction", {
+    params: { limit },
+  });
+  return data;
+}
+
+export async function startEvaluationRun(payload: {
+  dataset_id: number;
+  depot_lat: number;
+  depot_lon: number;
+  fleet_config: { num_vehicles: number; capacity: number | null };
+  workday_start: string;
+  workday_end: string;
+  solver: { solver_time_limit_s: number; allow_drop_visits: boolean };
+  sample_limit?: number;
+}): Promise<JobAccepted> {
+  const { data } = await api.post<JobAccepted>("/api/v1/evaluation/run", payload);
   return data;
 }

@@ -10,6 +10,7 @@ import { ResultsPage } from "./pages/ResultsPage";
 import { UploadPage } from "./pages/UploadPage";
 import { ValidationPage } from "./pages/ValidationPage";
 import { MlPage } from "./pages/MlPage";
+import { EvaluationPage } from "./pages/EvaluationPage";
 
 export function App() {
   return (
@@ -24,6 +25,7 @@ export function App() {
             <Route path="/optimization" element={<OptimizationPage />} />
             <Route path="/results" element={<ResultsPage />} />
             <Route path="/ml" element={<MlPage />} />
+            <Route path="/evaluation" element={<EvaluationPage />} />
           </Route>
           <Route path="/print/map" element={<PrintMapPage />} />
         </Routes>
