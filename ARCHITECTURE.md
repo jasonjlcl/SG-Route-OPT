@@ -1,6 +1,6 @@
 # SG Route Optimization Architecture
 
-This document translates the planned FYP architecture into the current codebase and defines the next implementation steps for the main gaps.
+This document translates the planned FYP architecture into the current codebase and records production-oriented implementation status.
 
 ## 1) Layered Architecture
 
@@ -19,6 +19,7 @@ flowchart TD
     subgraph EXT[External APIs]
       OMS[OneMap Search API]
       OMR[OneMap Routing API]
+      GRT[Google Routes API]
     end
 
     subgraph DATA[Data Layer]
@@ -33,6 +34,7 @@ flowchart TD
     GEO --> OMS
     GEO --> DB
     ML --> OMR
+    ML --> GRT
     ML --> CACHE
     ML --> DB
     ML --> OPT
@@ -87,6 +89,7 @@ sequenceDiagram
 - `backend/app/api/datasets.py`
 - `backend/app/api/stops.py`
 - `backend/app/api/plans.py`
+- `backend/app/api/jobs.py`
 
 - Core services
 - `backend/app/services/validation.py`
@@ -95,15 +98,19 @@ sequenceDiagram
 - `backend/app/services/onemap_client.py`
 - `backend/app/services/routing.py`
 - `backend/app/services/ml_engine.py`
+- `backend/app/providers/google_routes.py`
+- `backend/app/services/traffic_provider_google.py`
 - `backend/app/services/vrptw.py`
 - `backend/app/services/optimization.py`
+- `backend/app/services/job_pipeline.py`
+- `backend/app/services/job_tasks.py`
 - `backend/app/services/export.py`
 - `backend/app/services/cache.py`
 
 - Data layer
 - `backend/app/models/entities.py`
 
-## 4) Gap Closure Status (As Of February 16, 2026)
+## 4) Gap Closure Status (As Of February 18, 2026)
 
 ### A) MLOps lifecycle
 
@@ -119,9 +126,15 @@ Implemented:
 - Optional Vertex training trigger:
   - `POST /api/v1/ml/models/train/vertex`
 
-Remaining hardening:
-- Populate real OneMap secrets in production for non-mock routes.
-- Decide whether scheduler calls must always enforce `SCHEDULER_TOKEN`.
+Current production behavior:
+- Feature flags enabled in production:
+  - `FEATURE_GOOGLE_TRAFFIC=true`
+  - `FEATURE_ML_UPLIFT=true`
+  - `FEATURE_EVAL_DASHBOARD=true`
+- Google traffic optimize requests are verified in production with:
+  - `eta_source=google_traffic`
+  - non-null `traffic_timestamp`
+- Runtime fallback diagnostics now include structured `details=` payload for request-level failures.
 
 ### B) Async jobs and progress streaming
 
@@ -144,12 +157,19 @@ Implemented:
   - `POST /api/v1/plans/{plan_id}/routes/{route_id}/resequence`
 - Violation badges/tooltips and timing-impact visibility in Results UI
 
+### D) Production traffic runtime resiliency
+
+Implemented:
+- OneMap route failures in OD construction now fall back to heuristic estimates instead of hard-failing matrix build.
+- Google traffic departure timestamp is clamped to a near-future value for API compatibility.
+- Google request failures capture request/cause/DNS diagnostics in logs.
+
 ## 5) Suggested Next Delivery Plan
 
 1. Milestone 1
-- Add production OneMap secret values and validate non-mock routing against real credentials.
+- Monitor fallback/error log rates for at least one operational cycle and alert on sustained degradation.
 2. Milestone 2
-- Decide and enforce scheduler token policy for `/api/v1/ml/drift-report`.
+- Rotate and periodically validate all API secrets (OneMap + Google) with no-whitespace secret hygiene checks.
 3. Milestone 3
 - Add Cloud Run startup/liveness probes and project environment tagging for stronger ops hygiene.
 4. Milestone 4
@@ -178,17 +198,23 @@ flowchart LR
 ```mermaid
 flowchart LR
     Browser[Browser]
-    Frontend[Frontend App]
-    CloudRun[Cloud Run API]
+    WebDomain[app.sgroute.com]
+    ApiDomain[api.sgroute.com]
+    Frontend[Cloud Run Frontend Service]
+    CloudRun[Cloud Run API Service]
     Tasks[Cloud Tasks Queue]
     Scheduler[Cloud Scheduler]
     SecretMgr[Secret Manager]
     GCS[(GCS Bucket)]
     SQLite[(SQLite in container)]
     OneMap[OneMap APIs]
+    GoogleRoutes[Google Routes API]
 
-    Browser --> Frontend
-    Frontend --> CloudRun
+    Browser --> WebDomain
+    Browser --> ApiDomain
+    WebDomain --> Frontend
+    Frontend --> ApiDomain
+    ApiDomain --> CloudRun
     CloudRun --> Tasks
     Tasks --> CloudRun
     Scheduler --> CloudRun
@@ -196,4 +222,5 @@ flowchart LR
     CloudRun --> GCS
     CloudRun --> SQLite
     CloudRun --> OneMap
+    CloudRun --> GoogleRoutes
 ```

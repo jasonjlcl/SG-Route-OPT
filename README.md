@@ -200,7 +200,7 @@ Monitoring/alerting:
 - Active policy: `Cloud Run sg-route-opt-api - 5xx Error Rate > 5%`
 - Created as: `projects/gen-lang-client-0328386378/alertPolicies/4637109870947199083`
 
-## Current Production Snapshot (February 17, 2026)
+## Current Production Snapshot (February 18, 2026)
 
 - Project: `gen-lang-client-0328386378`
 - Region: `asia-southeast1`
@@ -208,14 +208,24 @@ Monitoring/alerting:
 - URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`
 - Frontend service: `sg-route-opt-web`
 - Webapp URL: `https://sg-route-opt-web-7wgewdyenq-as.a.run.app`
-- Latest API revision: `sg-route-opt-api-00024-gqk`
+- Latest API revision: `sg-route-opt-api-00028-7df`
 - Latest frontend revision: `sg-route-opt-web-00003-hp4`
 - Queue: `routeapp-queue`
 - Scheduler job: `route-ml-drift-weekly`
-- Health endpoint: `GET /api/v1/health` returns `200` with `env=prod`
+- Custom domains:
+  - `https://app.sgroute.com`
+  - `https://api.sgroute.com`
+- Domain mapping status:
+  - `app.sgroute.com` -> `True`
+  - `api.sgroute.com` -> `True`
+- Health endpoint: `GET /api/v1/health` returns `200` with `env=prod` and traffic/uplift/eval feature flags
 - OneMap secrets are now provisioned in Secret Manager:
   - `ONEMAP_EMAIL` (version `1`)
   - `ONEMAP_PASSWORD` (version `1`)
+- Google traffic verification:
+  - `use_live_traffic=true` optimize requests return `eta_source=google_traffic`
+  - `traffic_timestamp` is non-null for live-traffic plans
+  - No recent `Google ETA fallback activated` logs on revision `sg-route-opt-api-00028-7df` during smoke checks
 
 ## Operations Notes
 
@@ -451,6 +461,14 @@ Demo script:
 2. Open `/results` and confirm badge shows `ETA source: Google traffic`.
 3. Turn toggle OFF, rerun optimize, confirm badge changes to baseline source.
 4. Simulate quota/timeout and verify non-blocking fallback warning appears.
+
+Operational notes:
+
+- If secret values are edited manually, avoid trailing whitespace/newline in `GOOGLE_ROUTES_API_KEY`.
+- Fallback logs now include structured `details=` payload to speed up runtime diagnosis:
+  - `Google ETA fallback activated (..., details=...)`
+  - `Google resequence fallback activated (..., details=...)`
+  - `Google Routes request error after retries (details=...)`
 
 ### Optimize A/B Simulation (Baseline vs ML)
 
