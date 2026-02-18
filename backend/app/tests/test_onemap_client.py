@@ -64,3 +64,20 @@ def test_onemap_client_refresh_on_401(monkeypatch):
     assert data["found"] == 1
     assert calls["auth"] == 1
     assert calls["request"] == 2
+
+
+def test_onemap_client_route_fallback_on_failure(monkeypatch):
+    monkeypatch.setenv("ONEMAP_EMAIL", "user@example.com")
+    monkeypatch.setenv("ONEMAP_PASSWORD", "secret")
+    get_settings.cache_clear()
+
+    client = OneMapClient()
+
+    def fail_request(*args, **kwargs):
+        raise RuntimeError("routing unavailable")
+
+    monkeypatch.setattr(client, "_request_with_retries", fail_request)
+
+    route = client.route(1.3000, 103.8000, 1.3200, 103.8200)
+    assert route["distance_m"] > 0
+    assert route["duration_s"] > 0

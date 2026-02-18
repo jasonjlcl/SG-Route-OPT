@@ -6,11 +6,15 @@ import random
 import time
 from datetime import datetime, timezone
 from typing import Any
+import logging
 
 import httpx
 
 from app.services.cache import get_cache
 from app.utils.settings import get_settings
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class OneMapClient:
@@ -162,23 +166,32 @@ class OneMapClient:
             distance = self._haversine_m(origin_lat, origin_lon, dest_lat, dest_lon)
             duration = max(30.0, distance / 9.0)
             return {"distance_m": distance, "duration_s": duration}
+        try:
+            data = self._request_with_retries(
+                "GET",
+                self.settings.onemap_routing_url,
+                params={
+                    "start": f"{origin_lat},{origin_lon}",
+                    "end": f"{dest_lat},{dest_lon}",
+                    "routeType": route_type,
+                },
+            )
 
-        data = self._request_with_retries(
-            "GET",
-            self.settings.onemap_routing_url,
-            params={
-                "start": f"{origin_lat},{origin_lon}",
-                "end": f"{dest_lat},{dest_lon}",
-                "routeType": route_type,
-            },
-        )
-
-        summary = data.get("route_summary", {})
-        distance = float(summary.get("total_distance") or 0)
-        duration = float(summary.get("total_time") or 0)
-        if distance <= 0 or duration <= 0:
-            raise RuntimeError("Invalid OneMap routing response")
-        return {"distance_m": distance, "duration_s": duration}
+            summary = data.get("route_summary", {})
+            distance = float(summary.get("total_distance") or 0)
+            duration = float(summary.get("total_time") or 0)
+            if distance <= 0 or duration <= 0:
+                raise RuntimeError("Invalid OneMap routing response")
+            return {"distance_m": distance, "duration_s": duration}
+        except Exception as exc:  # noqa: BLE001
+            # Keep optimization resilient when OneMap traffic/routing is flaky.
+            fallback_distance = max(1.0, self._haversine_m(origin_lat, origin_lon, dest_lat, dest_lon) * 1.2)
+            fallback_duration = max(60.0, fallback_distance / 8.33)
+            LOGGER.warning(
+                "OneMap route fallback to heuristic estimate: %s",
+                str(exc),
+            )
+            return {"distance_m": fallback_distance, "duration_s": fallback_duration}
 
     @staticmethod
     def _extract_postal(query: str) -> str:
