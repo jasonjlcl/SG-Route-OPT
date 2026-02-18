@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import socket
 import threading
 import time
 from dataclasses import dataclass
@@ -179,6 +180,49 @@ class GoogleRoutesProvider:
     def _sleep_backoff(attempt: int) -> None:
         time.sleep(min(3.0, (2**attempt) * 0.2 + 0.05))
 
+    @staticmethod
+    def _request_error_details(exc: Exception) -> dict[str, Any]:
+        details: dict[str, Any] = {
+            "error_type": exc.__class__.__name__,
+            "error": str(exc),
+        }
+        request = getattr(exc, "request", None)
+        if request is not None:
+            details["method"] = str(getattr(request, "method", "") or "")
+            details["url"] = str(getattr(request, "url", "") or "")
+        cause = exc.__cause__
+        if cause is not None:
+            details["cause_type"] = cause.__class__.__name__
+            details["cause"] = str(cause)
+            errno = getattr(cause, "errno", None)
+            if isinstance(errno, int):
+                details["cause_errno"] = int(errno)
+        return details
+
+    @staticmethod
+    def _dns_probe(host: str) -> dict[str, Any]:
+        details: dict[str, Any] = {"host": host}
+        try:
+            entries = socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
+            ips: list[str] = []
+            for entry in entries:
+                sockaddr = entry[4]
+                if not isinstance(sockaddr, tuple) or not sockaddr:
+                    continue
+                ip = str(sockaddr[0])
+                if ip and ip not in ips:
+                    ips.append(ip)
+                if len(ips) >= 3:
+                    break
+            details["resolved_count"] = len(ips)
+            details["resolved_ips"] = ips
+        except OSError as exc:
+            details["dns_error_type"] = exc.__class__.__name__
+            details["dns_error"] = str(exc)
+            if isinstance(getattr(exc, "errno", None), int):
+                details["dns_errno"] = int(exc.errno)
+        return details
+
     def _post(self, *, url: str, payload: dict[str, Any], field_mask: str, max_attempts: int = 3) -> httpx.Response:
         last_error: GoogleRoutesError | None = None
         for attempt in range(max_attempts):
@@ -186,23 +230,36 @@ class GoogleRoutesProvider:
             try:
                 response = self.http.post(url, json=payload, headers=self._headers(field_mask=field_mask))
             except httpx.TimeoutException as exc:
+                error_details = self._request_error_details(exc)
+                error_details["attempt"] = attempt + 1
+                error_details["max_attempts"] = max_attempts
                 last_error = GoogleRoutesError(
                     "Google Routes request timed out",
                     code="GOOGLE_ROUTES_TIMEOUT",
                     retryable=True,
-                    details={"attempt": attempt + 1},
+                    details=error_details,
                 )
                 if attempt == max_attempts - 1:
                     raise last_error from exc
                 self._sleep_backoff(attempt)
                 continue
             except httpx.RequestError as exc:
+                error_details = self._request_error_details(exc)
+                error_details["attempt"] = attempt + 1
+                error_details["max_attempts"] = max_attempts
+                if attempt == max_attempts - 1:
+                    error_details["dns_probe"] = self._dns_probe("routes.googleapis.com")
                 last_error = GoogleRoutesError(
                     "Google Routes request failed",
                     code="GOOGLE_ROUTES_REQUEST_ERROR",
                     retryable=True,
-                    details={"attempt": attempt + 1},
+                    details=error_details,
                 )
+                if attempt == max_attempts - 1:
+                    LOGGER.warning(
+                        "Google Routes request error after retries (details=%s)",
+                        error_details,
+                    )
                 if attempt == max_attempts - 1:
                     raise last_error from exc
                 self._sleep_backoff(attempt)

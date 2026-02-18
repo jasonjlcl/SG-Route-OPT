@@ -69,7 +69,11 @@ class Settings(BaseSettings):
 
     @property
     def resolved_google_routes_api_key(self) -> str | None:
-        return self.google_routes_api_key or self.google_maps_api_key
+        key = self.google_routes_api_key or self.google_maps_api_key
+        if key is None:
+            return None
+        cleaned = str(key).strip()
+        return cleaned or None
 
     @property
     def resolved_google_routing_preference(self) -> str:

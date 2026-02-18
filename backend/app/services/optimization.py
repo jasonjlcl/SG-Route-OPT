@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 import logging
 from pathlib import Path
 from typing import Any, Callable
@@ -29,6 +29,8 @@ ETA_SOURCE_GOOGLE_TRAFFIC = "google_traffic"
 ETA_SOURCE_ML_UPLIFT = "ml_uplift"
 ETA_SOURCE_ML_BASELINE = "ml_baseline"
 ETA_SOURCE_ONEMAP = "onemap"
+SG_TZ = timezone(timedelta(hours=8))
+MIN_GOOGLE_DEPARTURE_LEAD_SECONDS = 120
 
 
 @dataclass
@@ -69,6 +71,14 @@ def _seconds_to_iso(seconds_since_midnight: int) -> str:
     return dt.isoformat()
 
 
+def _ensure_future_google_departure(depart_dt: datetime) -> datetime:
+    candidate = depart_dt if depart_dt.tzinfo else depart_dt.replace(tzinfo=SG_TZ)
+    now_sg = datetime.now(SG_TZ) + timedelta(seconds=MIN_GOOGLE_DEPARTURE_LEAD_SECONDS)
+    if candidate < now_sg:
+        return now_sg
+    return candidate
+
+
 def _eta_source_from_artifact(artifact: dict[str, Any]) -> str:
     matrix_strategy = str(artifact.get("matrix_strategy") or "").lower()
     if matrix_strategy == ETA_SOURCE_ML_UPLIFT:
@@ -77,6 +87,16 @@ def _eta_source_from_artifact(artifact: dict[str, Any]) -> str:
     if version in {"", "fallback_v1"}:
         return ETA_SOURCE_ONEMAP
     return ETA_SOURCE_ML_BASELINE
+
+
+def _google_error_details_json(exc: GoogleTrafficError) -> str:
+    details = getattr(exc, "details", None)
+    if not details:
+        return "{}"
+    try:
+        return json.dumps(details, ensure_ascii=True, default=str)
+    except Exception:  # noqa: BLE001
+        return str(details)
 
 
 def eta_recompute_with_time_windows(
@@ -760,7 +780,9 @@ def solve_optimization_from_artifact(
                     continue
 
                 route_start_s = int(record["components"]["route_start_s"])
-                depart_dt = datetime.combine(date.today(), time.min) + timedelta(seconds=route_start_s)
+                depart_dt = _ensure_future_google_departure(
+                    datetime.combine(date.today(), time.min) + timedelta(seconds=route_start_s)
+                )
                 if traffic_timestamp is None:
                     traffic_timestamp = depart_dt.isoformat()
 
@@ -822,11 +844,12 @@ def solve_optimization_from_artifact(
             if progress_cb:
                 progress_cb(90, "Fallback to ML baseline due to quota/timeout ...")
             LOGGER.warning(
-                "Google ETA fallback activated (plan_id=%s, dataset_id=%s, code=%s, status=%s)",
+                "Google ETA fallback activated (plan_id=%s, dataset_id=%s, code=%s, status=%s, details=%s)",
                 plan.id,
                 dataset_id,
                 exc.code,
                 exc.status_code,
+                _google_error_details_json(exc),
             )
             eta_source = _eta_source_from_artifact(artifact)
             traffic_timestamp = None
@@ -834,7 +857,13 @@ def solve_optimization_from_artifact(
             warnings.append("Google traffic unavailable; using baseline ETAs.")
             if progress_cb:
                 progress_cb(90, "Fallback to ML baseline due to quota/timeout ...")
-            LOGGER.warning("Google ETA fallback activated (plan_id=%s, dataset_id=%s, error=%s)", plan.id, dataset_id, str(exc))
+            LOGGER.warning(
+                "Google ETA fallback activated (plan_id=%s, dataset_id=%s, error_type=%s, error=%s)",
+                plan.id,
+                dataset_id,
+                exc.__class__.__name__,
+                str(exc),
+            )
             eta_source = _eta_source_from_artifact(artifact)
             traffic_timestamp = None
 
@@ -1007,27 +1036,35 @@ def resequence_route(
                 else {"lat": float(node.lat or 0), "lon": float(node.lon or 0)}
                 for node in ordered_nodes
             ]
+            google_depart_dt = _ensure_future_google_departure(depart_dt)
             google_legs = _google_route_legs(
                 provider=provider,
                 route_points=google_route_points,
-                departure_time_iso=depart_dt.isoformat(),
+                departure_time_iso=google_depart_dt.isoformat(),
                 routing_preference=settings.resolved_google_routing_preference,
             )
             google_leg_times = [max(1, int(leg.duration_s)) for leg in google_legs]
             eta_source = ETA_SOURCE_GOOGLE_TRAFFIC
-            traffic_timestamp = depart_dt.isoformat()
+            traffic_timestamp = google_depart_dt.isoformat()
         except GoogleTrafficError as exc:
             warnings.append("Google traffic unavailable; using baseline ETAs.")
             LOGGER.warning(
-                "Google resequence fallback activated (plan_id=%s, route_id=%s, code=%s, status=%s)",
+                "Google resequence fallback activated (plan_id=%s, route_id=%s, code=%s, status=%s, details=%s)",
                 plan_id,
                 route_id,
                 exc.code,
                 exc.status_code,
+                _google_error_details_json(exc),
             )
         except Exception as exc:  # noqa: BLE001
             warnings.append("Google traffic unavailable; using baseline ETAs.")
-            LOGGER.warning("Google resequence fallback activated (plan_id=%s, route_id=%s, error=%s)", plan_id, route_id, str(exc))
+            LOGGER.warning(
+                "Google resequence fallback activated (plan_id=%s, route_id=%s, error_type=%s, error=%s)",
+                plan_id,
+                route_id,
+                exc.__class__.__name__,
+                str(exc),
+            )
 
     timeline: list[dict[str, Any]] = []
     current_dt = depart_dt
