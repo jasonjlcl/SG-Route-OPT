@@ -39,6 +39,26 @@ type AbSimulationResult = {
   model_version?: string;
 };
 
+function normalizeOptimizationResult(jobData: any): OptimizationResult | null {
+  const resultRef = jobData?.result_ref;
+  if (!resultRef || typeof resultRef !== "object") return null;
+
+  // Pipeline jobs store optimize output under result_ref.optimize; keep direct shape for legacy paths.
+  const raw = typeof resultRef.optimize === "object" && resultRef.optimize ? resultRef.optimize : resultRef;
+  const planIdRaw = (raw as any).plan_id ?? (resultRef as any).plan_id;
+  const planId = typeof planIdRaw === "number" ? planIdRaw : Number(planIdRaw || 0);
+
+  return {
+    ...(raw as OptimizationResult),
+    plan_id: planId,
+    warnings: Array.isArray((raw as any).warnings)
+      ? ((raw as any).warnings as string[])
+      : Array.isArray((resultRef as any).warnings)
+        ? ((resultRef as any).warnings as string[])
+        : undefined,
+  };
+}
+
 export function OptimizationPage() {
   const navigate = useNavigate();
   const { datasetId, dataset, setPlanId, refresh } = useWorkflowContext();
@@ -84,11 +104,11 @@ export function OptimizationPage() {
   });
 
   const loadFromJobResult = async (jobData: any) => {
-    const resultRef = jobData?.result_ref as OptimizationResult | undefined;
-    if (!resultRef) return;
-    setResult(resultRef);
-    if (resultRef.plan_id) {
-      setPlanId(resultRef.plan_id);
+    const normalized = normalizeOptimizationResult(jobData);
+    if (!normalized) return;
+    setResult(normalized);
+    if (normalized.plan_id) {
+      setPlanId(normalized.plan_id);
       await refresh();
     }
   };
@@ -124,7 +144,7 @@ export function OptimizationPage() {
       localStorage.removeItem("optimize_job_id");
       setActiveJobId(null);
       void loadFromJobResult(job);
-      const warnings = Array.isArray((job.result_ref as any)?.warnings) ? ((job.result_ref as any).warnings as string[]) : [];
+      const warnings = normalizeOptimizationResult(job)?.warnings ?? [];
       if (warnings.length > 0) {
         toast.warning("Baseline ETA fallback", { description: warnings[0] });
       }

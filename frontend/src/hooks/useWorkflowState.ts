@@ -17,6 +17,7 @@ export function useWorkflowState() {
   const [planId, setPlanIdState] = useState<number>(() => Number(localStorage.getItem("plan_id") || "0"));
   const [dataset, setDataset] = useState<DatasetSummary | null>(null);
   const [plan, setPlan] = useState<any>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const setDatasetId = useCallback((id: number) => {
     setDatasetIdState(id);
@@ -29,26 +30,41 @@ export function useWorkflowState() {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (datasetId > 0) {
-      try {
-        const ds = await getDataset(datasetId);
-        setDataset(ds);
-      } catch {
+    setIsRefreshing(true);
+    try {
+      let effectivePlanId = planId;
+
+      if (datasetId > 0) {
+        try {
+          const ds = await getDataset(datasetId);
+          setDataset(ds);
+          const latestPlanId = Number(ds.latest_plan_id || 0);
+          if (latestPlanId > 0) {
+            effectivePlanId = latestPlanId;
+            if (latestPlanId !== planId) {
+              setPlanIdState(latestPlanId);
+              localStorage.setItem("plan_id", String(latestPlanId));
+            }
+          }
+        } catch {
+          setDataset(null);
+        }
+      } else {
         setDataset(null);
       }
-    } else {
-      setDataset(null);
-    }
 
-    if (planId > 0) {
-      try {
-        const p = await getPlan(planId);
-        setPlan(p);
-      } catch {
+      if (effectivePlanId > 0) {
+        try {
+          const p = await getPlan(effectivePlanId);
+          setPlan(p);
+        } catch {
+          setPlan(null);
+        }
+      } else {
         setPlan(null);
       }
-    } else {
-      setPlan(null);
+    } finally {
+      setIsRefreshing(false);
     }
   }, [datasetId, planId]);
 
@@ -64,13 +80,13 @@ export function useWorkflowState() {
     const optimizeState = dataset?.optimize_state ?? "NOT_STARTED";
 
     const validateStatus: StepStatus =
-      validationState === "VALID" || validationState === "PARTIAL"
+      validationState === "VALID"
         ? "complete"
         : validationState === "BLOCKED"
           ? "attention"
-          : datasetId > 0
+          : validationState === "PARTIAL"
             ? "in_progress"
-            : "not_started";
+          : "not_started";
 
     const geocodeStatus: StepStatus =
       geocodeState === "COMPLETE"
@@ -79,9 +95,7 @@ export function useWorkflowState() {
           ? "attention"
           : geocodeState === "IN_PROGRESS"
             ? "in_progress"
-            : datasetId > 0
-              ? "in_progress"
-              : "not_started";
+            : "not_started";
 
     const optimizeStatus: StepStatus =
       optimizeState === "COMPLETE"
@@ -90,9 +104,7 @@ export function useWorkflowState() {
           ? "attention"
           : optimizeState === "RUNNING"
             ? "in_progress"
-            : geocodeState === "COMPLETE"
-              ? "in_progress"
-              : "not_started";
+            : "not_started";
 
     const viewedPlanId = Number(localStorage.getItem("results_viewed_plan_id") || "0");
     const effectivePlanId = dataset?.latest_plan_id ?? planId;
@@ -117,5 +129,6 @@ export function useWorkflowState() {
     setPlanId,
     steps,
     refresh,
+    isRefreshing,
   };
 }
