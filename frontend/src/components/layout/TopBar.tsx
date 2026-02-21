@@ -12,9 +12,10 @@ type TopBarProps = {
   datasetStatus: string;
   onDatasetChange: (id: number) => void;
   onRefresh: () => Promise<void>;
+  refreshing?: boolean;
 };
 
-export function TopBar({ datasetId, planId, datasetStatus, onDatasetChange, onRefresh }: TopBarProps) {
+export function TopBar({ datasetId, planId, datasetStatus, onDatasetChange, onRefresh, refreshing = false }: TopBarProps) {
   return (
     <header className="no-print sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90">
       <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -47,8 +48,9 @@ export function TopBar({ datasetId, planId, datasetStatus, onDatasetChange, onRe
             {datasetStatus || "No dataset"}
           </Badge>
 
-          <Button variant="secondary" size="sm" onClick={() => void onRefresh()}>
-            <RefreshCcw className="mr-2 h-4 w-4" /> Refresh
+          <Button variant="secondary" size="sm" onClick={() => void onRefresh()} disabled={refreshing}>
+            <RefreshCcw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
           </Button>
 
           {planId > 0 && (

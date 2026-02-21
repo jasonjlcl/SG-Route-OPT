@@ -5,7 +5,7 @@ import { StepNav } from "./StepNav";
 import { TopBar } from "./TopBar";
 
 export function AppShell() {
-  const { datasetId, planId, dataset, steps, setDatasetId, refresh } = useWorkflowContext();
+  const { datasetId, planId, dataset, steps, setDatasetId, refresh, isRefreshing } = useWorkflowContext();
 
   return (
     <div className="min-h-screen">
@@ -15,6 +15,7 @@ export function AppShell() {
         datasetStatus={String(dataset?.status || "No dataset")}
         onDatasetChange={setDatasetId}
         onRefresh={refresh}
+        refreshing={isRefreshing}
       />
       <div className="mx-auto grid max-w-[1400px] grid-cols-1 gap-6 p-4 md:grid-cols-[260px_1fr]">
         <aside className="no-print rounded-xl border bg-card p-4 shadow-soft">
