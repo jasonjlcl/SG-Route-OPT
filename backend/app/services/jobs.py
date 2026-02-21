@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 import json
-import threading
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from redis import Redis
-from rq import Queue, Worker
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.models import Job
+from app.services.cloud_tasks import enqueue_job_task
 from app.utils.db import SessionLocal
 from app.utils.errors import AppError
 from app.utils.settings import get_settings
@@ -156,7 +154,42 @@ def ensure_step_entry(steps_state: dict[str, dict[str, Any]], step: str) -> dict
     return entry
 
 
-def lock_step(db: Session, *, job_id: str, step: str, lock_token: str) -> bool:
+def _parse_step_timestamp(value: Any) -> datetime | None:
+    if not value:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    if raw.endswith("Z"):
+        raw = f"{raw[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def _step_lease_is_expired(entry: dict[str, Any], *, now: datetime) -> bool:
+    lease_expires_at = _parse_step_timestamp(entry.get("lease_expires_at"))
+    if lease_expires_at is not None:
+        return lease_expires_at <= now
+    updated_at = _parse_step_timestamp(entry.get("updated_at"))
+    if updated_at is None:
+        return False
+    lease_seconds = max(5, int(get_settings().pipeline_step_lease_seconds))
+    return (updated_at + timedelta(seconds=lease_seconds)) <= now
+
+
+def lock_step(
+    db: Session,
+    *,
+    job_id: str,
+    step: str,
+    lock_token: str,
+    lease_seconds: int | None = None,
+) -> bool:
     job = get_job_or_404(db, job_id)
     if job.status in {"FAILED", "SUCCEEDED", "CANCELED", "CANCELLED"}:
         return False
@@ -164,17 +197,57 @@ def lock_step(db: Session, *, job_id: str, step: str, lock_token: str) -> bool:
     steps = get_steps_state(job)
     entry = ensure_step_entry(steps, step)
     status = str(entry.get("status") or "PENDING")
-    if status in {"RUNNING", "SUCCEEDED"}:
+    now = datetime.utcnow()
+    effective_lease = max(5, int(lease_seconds or get_settings().pipeline_step_lease_seconds))
+    if status == "SUCCEEDED":
         return False
+    if status == "RUNNING":
+        if not _step_lease_is_expired(entry, now=now):
+            return False
+        entry["stale_reclaimed"] = int(entry.get("stale_reclaimed") or 0) + 1
 
     entry["status"] = "RUNNING"
     entry["lock_token"] = lock_token
-    entry["updated_at"] = datetime.utcnow().isoformat()
+    entry["updated_at"] = now.isoformat()
+    entry["lease_expires_at"] = (now + timedelta(seconds=effective_lease)).isoformat()
     job.steps_json = _json(steps)
     job.current_step = step
-    job.updated_at = datetime.utcnow()
+    job.updated_at = now
     _commit_with_retry(db)
     return True
+
+
+def touch_step_lease(
+    db: Session,
+    *,
+    job_id: str,
+    step: str,
+    lock_token: str,
+    lease_seconds: int | None = None,
+) -> bool:
+    job = get_job_or_404(db, job_id)
+    steps = get_steps_state(job)
+    entry = ensure_step_entry(steps, step)
+    if str(entry.get("status") or "") != "RUNNING":
+        return False
+    if str(entry.get("lock_token") or "") != lock_token:
+        return False
+
+    now = datetime.utcnow()
+    effective_lease = max(5, int(lease_seconds or get_settings().pipeline_step_lease_seconds))
+    entry["updated_at"] = now.isoformat()
+    entry["lease_expires_at"] = (now + timedelta(seconds=effective_lease)).isoformat()
+    job.steps_json = _json(steps)
+    job.updated_at = now
+    _commit_with_retry(db)
+    return True
+
+
+def has_step_lock(db: Session, *, job_id: str, step: str, lock_token: str) -> bool:
+    job = get_job_or_404(db, job_id)
+    steps = get_steps_state(job)
+    entry = ensure_step_entry(steps, step)
+    return str(entry.get("status") or "") == "RUNNING" and str(entry.get("lock_token") or "") == lock_token
 
 
 def complete_step(
@@ -196,6 +269,7 @@ def complete_step(
     entry["status"] = "SUCCEEDED"
     entry["lock_token"] = None
     entry["updated_at"] = datetime.utcnow().isoformat()
+    entry["lease_expires_at"] = None
     job.steps_json = _json(steps)
     return set_job_status(
         db,
@@ -225,6 +299,7 @@ def fail_step(
     entry["status"] = "FAILED"
     entry["lock_token"] = None
     entry["updated_at"] = datetime.utcnow().isoformat()
+    entry["lease_expires_at"] = None
     entry["error_code"] = error_code
     entry["error_detail"] = error_detail if isinstance(error_detail, str) else _json(error_detail)
     job.steps_json = _json(steps)
@@ -240,7 +315,9 @@ def fail_step(
     )
 
 
-def _run_job_inline(job_id: str) -> None:
+def run_queued_job(job_id: str) -> None:
+    if not job_id:
+        return
     from app.services.job_tasks import run_job
 
     db = SessionLocal()
@@ -253,24 +330,4 @@ def _run_job_inline(job_id: str) -> None:
 
 
 def enqueue_job(job: Job) -> None:
-    settings = get_settings()
-    if settings.jobs_force_inline:
-        _run_job_inline(job.id)
-        return
-
-    def _enqueue_inline_thread() -> None:
-        thread = threading.Thread(target=_run_job_inline, args=(job.id,), daemon=True)
-        thread.start()
-
-    try:
-        redis_conn = Redis.from_url(settings.redis_url)
-        redis_conn.ping()
-        queue = Queue("default", connection=redis_conn)
-        worker_count = Worker.count(connection=redis_conn, queue=queue)
-        if worker_count <= 0:
-            _enqueue_inline_thread()
-            return
-        queue.enqueue("app.services.job_tasks.run_job", job_id=job.id, job_type=job.type, payload=json.loads(job.payload_json))
-        return
-    except Exception:
-        _enqueue_inline_thread()
+    enqueue_job_task(job_id=job.id)

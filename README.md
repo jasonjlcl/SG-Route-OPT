@@ -39,7 +39,7 @@ Design system files:
 - Optimizer: OR-Tools (VRPTW + optional capacity)
 - ML: scikit-learn baseline, fallback heuristic when model missing
 - DB: SQLite (swap-ready for Postgres via `DATABASE_URL`)
-- Cache/Queue: Redis + RQ (legacy/background ML jobs) and Cloud Tasks-compatible async step pipeline for optimize flow
+- Cache/Queue: Redis + RQ for local async workers; Cloud Tasks for cloud async jobs (geocode/optimize/export/ML)
 - Static map rendering: Google Static Maps API (preferred) with Playwright/fallback renderer when key is absent
 - Frontend: React + Vite + TypeScript + React-Leaflet
 - External APIs: OneMap Search + OneMap Routing (mock mode if creds missing), optional Google Routes traffic-aware ETA
@@ -106,12 +106,12 @@ Queue/scheduler/security options:
 - `CLOUD_TASKS_AUDIENCE` (optional, defaults to `${APP_BASE_URL}/tasks/handle`)
 - `API_SERVICE_ACCOUNT_EMAIL` (service account email used for IAM signed URL fallback in Cloud Run)
 - `TASKS_AUTH_REQUIRED` (default `true`)
-- `SCHEDULER_TOKEN` (optional shared secret for `/api/v1/ml/drift-report`)
+- `SCHEDULER_TOKEN` (required in `prod`/`production`; shared secret for `/api/v1/ml/drift-report`)
 
 General runtime options:
 
 - `REDIS_URL` (default `redis://redis:6379/0`)
-- `DATABASE_URL` (default `sqlite:///./app.db`)
+- `DATABASE_URL` (default `sqlite:///./app.db`; for cloud use Postgres, e.g. `postgresql+psycopg://...`)
 - `ALLOWED_ORIGINS` (default `http://localhost:5173`)
 - `APP_BASE_URL` (default `http://localhost:8000`)
 - `FRONTEND_BASE_URL` (default `http://localhost:5173`)
@@ -127,7 +127,16 @@ If OneMap credentials are empty, backend automatically uses deterministic mock g
 ```bash
 cd backend
 python -m pip install -r requirements.txt
+python -m alembic -c alembic.ini upgrade head
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+If you already have a legacy local SQLite DB created before Alembic was added, stamp it once before upgrading:
+
+```bash
+cd backend
+python -m alembic -c alembic.ini stamp 4a6adfe08937
+python -m alembic -c alembic.ini upgrade head
 ```
 
 ### Worker (for async queue)
@@ -136,6 +145,11 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 cd backend
 rq worker default --url redis://localhost:6379/0
 ```
+
+Queue behavior:
+- Local mode (`APP_ENV=dev`): async jobs are queued to Redis/RQ.
+- Cloud mode (`APP_ENV=prod`/`staging`): async jobs are queued to Cloud Tasks.
+- `JOBS_FORCE_INLINE=true` is only for tests/dev overrides.
 
 ### Frontend
 
@@ -165,10 +179,19 @@ export GCS_BUCKET=gs://route_app
 export MAPS_STATIC_API_KEY=your_key
 export ONEMAP_EMAIL=your_email
 export ONEMAP_PASSWORD=your_password
+export DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST:5432/DBNAME'
 export FEATURE_VERTEX_AI=false
 
 bash infra/gcp/deploy.sh
 ```
+
+`infra/gcp/deploy.sh` binds `DATABASE_URL` from Secret Manager into Cloud Run. On first deploy, provide `DATABASE_URL` to seed the secret version.
+
+`infra/gcp/deploy.sh` now runs `alembic upgrade head` via a Cloud Run Job before deploying the service revision.
+Controls:
+
+- `RUN_DB_MIGRATIONS=true|false` (default `true`)
+- `MIGRATION_JOB_NAME` (default `${SERVICE_NAME}-db-migrate`)
 
 Frontend deploy example (production static build):
 
@@ -190,7 +213,9 @@ Guardrails baked in:
 
 - Cloud Run `min-instances=0`, `max-instances=1`
 - Cloud Tasks queue throttled (`max-concurrent-dispatches=1`)
+- Cloud mode does not require Redis worker processes for async job execution
 - Weekly Cloud Scheduler trigger for `/api/v1/ml/drift-report`
+- Cloud Run startup probe on `/health/ready` and liveness probe on `/health/live`
 - Cloud Tasks OIDC callback path validated with production payload format (`/tasks/handle` 2xx)
 - Signed URL generation for export artifacts hardened for Cloud Run service-account credentials
 
@@ -219,6 +244,9 @@ Monitoring/alerting:
   - `app.sgroute.com` -> `True`
   - `api.sgroute.com` -> `True`
 - Health endpoint: `GET /api/v1/health` returns `200` with `env=prod` and traffic/uplift/eval feature flags
+- Probe endpoints:
+  - `GET /health/live` (liveness)
+  - `GET /health/ready` (readiness + dependency checks)
 - OneMap secrets are now provisioned in Secret Manager:
   - `ONEMAP_EMAIL` (version `1`)
   - `ONEMAP_PASSWORD` (version `1`)
@@ -385,6 +413,8 @@ Ready-to-use datasets are in `sample_data/`:
 - `GET /api/v1/ml/evaluation/compare`
 - `POST /api/v1/ml/evaluation/run`
 - `GET /api/v1/health`
+- `GET /health/live`
+- `GET /health/ready`
 
 ## Curl Examples
 
@@ -619,6 +649,7 @@ Uplift artifacts are stored at `backend/app/ml_uplift/artifacts/`.
 - Mention GCS paths:
   - `maps/{plan_id}/{route_id}.png`
   - `driver_packs/{plan_id}/driver_pack.pdf`
+  - `matrix/{job_id}.json` (BUILD_MATRIX -> OPTIMIZE durable handoff artifact)
 
 6. MLOps
 - Open `/ml`

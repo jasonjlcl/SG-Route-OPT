@@ -9,12 +9,14 @@ from app.utils.settings import get_settings
 
 try:
     import google.auth
+    from google.api_core.exceptions import NotFound
     from google.cloud import storage
     from google.auth.transport.requests import Request
 
     STORAGE_AVAILABLE = True
 except Exception:  # noqa: BLE001
     STORAGE_AVAILABLE = False
+    NotFound = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,26 @@ def upload_bytes(
         "file_path": str(target),
         "object_path": clean_path,
     }
+
+
+def download_bytes(*, object_path: str) -> bytes | None:
+    bucket_name = _bucket_name()
+    clean_path = object_path.lstrip("/")
+    if gcs_enabled() and bucket_name:
+        client = storage.Client(project=get_settings().gcp_project_id or None)
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(clean_path)
+        try:
+            return blob.download_as_bytes()
+        except Exception as exc:  # noqa: BLE001
+            if NotFound is not None and isinstance(exc, NotFound):
+                return None
+            raise
+
+    target = LOCAL_ARTIFACT_DIR / clean_path
+    if not target.exists():
+        return None
+    return target.read_bytes()
 
 
 def signed_download_url(*, object_path: str) -> str | None:

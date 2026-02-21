@@ -18,6 +18,13 @@ ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-*}"
 FRONTEND_BASE_URL="${FRONTEND_BASE_URL:-https://example-frontend.invalid}"
 SCHEDULER_TOKEN="${SCHEDULER_TOKEN:-}"
 GCLOUD_BIN="${GCLOUD_BIN:-gcloud}"
+RUN_DB_MIGRATIONS="${RUN_DB_MIGRATIONS:-true}"
+MIGRATION_JOB_NAME="${MIGRATION_JOB_NAME:-${SERVICE_NAME}-db-migrate}"
+
+if [[ -z "${SCHEDULER_TOKEN//[[:space:]]/}" ]]; then
+  echo "ERROR: SCHEDULER_TOKEN must be set and non-empty."
+  exit 1
+fi
 
 echo "==> Configuring project ${GCP_PROJECT_ID} (${GCP_REGION})"
 "${GCLOUD_BIN}" config set project "${GCP_PROJECT_ID}" >/dev/null
@@ -81,6 +88,30 @@ for SECRET_NAME in ONEMAP_EMAIL ONEMAP_PASSWORD MAPS_STATIC_API_KEY; do
   fi
 done
 
+DATABASE_URL_SECRET_NAME="${DATABASE_URL_SECRET_NAME:-DATABASE_URL}"
+DATABASE_URL_VALUE="${DATABASE_URL:-}"
+
+if ! "${GCLOUD_BIN}" secrets describe "${DATABASE_URL_SECRET_NAME}" >/dev/null 2>&1; then
+  if [[ -z "${DATABASE_URL_VALUE}" ]]; then
+    echo "ERROR: Secret ${DATABASE_URL_SECRET_NAME} does not exist and DATABASE_URL is empty."
+    echo "Set DATABASE_URL to create the initial secret version (Cloud SQL Postgres DSN)."
+    exit 1
+  fi
+  "${GCLOUD_BIN}" secrets create "${DATABASE_URL_SECRET_NAME}" --replication-policy="automatic" >/dev/null
+fi
+
+if [[ -n "${DATABASE_URL_VALUE}" ]]; then
+  printf '%s' "${DATABASE_URL_VALUE}" | "${GCLOUD_BIN}" secrets versions add "${DATABASE_URL_SECRET_NAME}" --data-file=- >/dev/null
+fi
+
+if ! "${GCLOUD_BIN}" secrets versions list "${DATABASE_URL_SECRET_NAME}" --limit=1 --format='value(name)' | grep -q .; then
+  echo "ERROR: Secret ${DATABASE_URL_SECRET_NAME} has no versions."
+  echo "Provide DATABASE_URL to seed a secret version before deployment."
+  exit 1
+fi
+
+SECRET_BINDINGS+=("DATABASE_URL=${DATABASE_URL_SECRET_NAME}:latest")
+
 echo "==> Building container image"
 TEMP_DOCKERFILE_CREATED=false
 if [[ ! -f "./Dockerfile" ]]; then
@@ -92,6 +123,49 @@ fi
 
 if [[ "${TEMP_DOCKERFILE_CREATED}" == "true" ]]; then
   rm -f ./Dockerfile
+fi
+
+if [[ "${RUN_DB_MIGRATIONS}" == "true" ]]; then
+  echo "==> Running database migrations via Cloud Run Job ${MIGRATION_JOB_NAME}"
+  MIGRATION_SET_SECRETS="DATABASE_URL=${DATABASE_URL_SECRET_NAME}:latest"
+  MIGRATION_ENV_VARS="APP_ENV=prod,GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_REGION=${GCP_REGION},GCS_BUCKET=${GCS_BUCKET}"
+
+  if "${GCLOUD_BIN}" run jobs describe "${MIGRATION_JOB_NAME}" --region="${GCP_REGION}" >/dev/null 2>&1; then
+    "${GCLOUD_BIN}" run jobs update "${MIGRATION_JOB_NAME}" \
+      --image="${IMAGE_URI}" \
+      --region="${GCP_REGION}" \
+      --service-account="${API_SA_EMAIL}" \
+      --command=alembic \
+      --args=-c,alembic.ini,upgrade,head \
+      --set-secrets="${MIGRATION_SET_SECRETS}" \
+      --set-env-vars="${MIGRATION_ENV_VARS}" >/dev/null
+  else
+    "${GCLOUD_BIN}" run jobs create "${MIGRATION_JOB_NAME}" \
+      --image="${IMAGE_URI}" \
+      --region="${GCP_REGION}" \
+      --service-account="${API_SA_EMAIL}" \
+      --command=alembic \
+      --args=-c,alembic.ini,upgrade,head \
+      --set-secrets="${MIGRATION_SET_SECRETS}" \
+      --set-env-vars="${MIGRATION_ENV_VARS}" >/dev/null
+  fi
+
+  "${GCLOUD_BIN}" run jobs execute "${MIGRATION_JOB_NAME}" --region="${GCP_REGION}" --wait >/dev/null
+else
+  echo "==> Skipping database migrations (RUN_DB_MIGRATIONS=${RUN_DB_MIGRATIONS})"
+fi
+
+echo "==> Creating/updating Cloud Tasks queue"
+if ! "${GCLOUD_BIN}" tasks queues describe "${QUEUE_NAME}" --location="${GCP_REGION}" >/dev/null 2>&1; then
+  "${GCLOUD_BIN}" tasks queues create "${QUEUE_NAME}" \
+    --location="${GCP_REGION}" \
+    --max-concurrent-dispatches=1 \
+    --max-dispatches-per-second=1 >/dev/null
+else
+  "${GCLOUD_BIN}" tasks queues update "${QUEUE_NAME}" \
+    --location="${GCP_REGION}" \
+    --max-concurrent-dispatches=1 \
+    --max-dispatches-per-second=1 >/dev/null
 fi
 
 echo "==> Deploying Cloud Run service (min=0, max=1)"
@@ -110,7 +184,10 @@ fi
   --max-instances=1 \
   --memory=2Gi \
   --cpu=1 \
+  --port=8080 \
   --timeout=900 \
+  --startup-probe="httpGet.path=/health/ready,httpGet.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=24" \
+  --liveness-probe="httpGet.path=/health/live,httpGet.port=8080,periodSeconds=30,timeoutSeconds=5,failureThreshold=3" \
   --set-env-vars="APP_ENV=prod,GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_REGION=${GCP_REGION},GCS_BUCKET=${GCS_BUCKET},CLOUD_TASKS_QUEUE=${QUEUE_NAME},CLOUD_TASKS_SERVICE_ACCOUNT=${TASKS_SA_EMAIL},API_SERVICE_ACCOUNT_EMAIL=${API_SA_EMAIL},FEATURE_VERTEX_AI=${FEATURE_VERTEX_AI},VERTEX_MODEL_DISPLAY_NAME=${VERTEX_MODEL_DISPLAY_NAME},TASKS_AUTH_REQUIRED=true,ALLOWED_ORIGINS=${ALLOWED_ORIGINS},FRONTEND_BASE_URL=${FRONTEND_BASE_URL}" \
   "${SET_SECRETS_ARGS[@]}" >/dev/null
 
@@ -123,19 +200,6 @@ echo "==> Updating Cloud Run runtime URLs"
   --region="${GCP_REGION}" \
   --update-env-vars="APP_BASE_URL=${SERVICE_URL},CLOUD_TASKS_AUDIENCE=${TASKS_AUDIENCE},SCHEDULER_TOKEN=${SCHEDULER_TOKEN}" >/dev/null
 
-echo "==> Creating/updating Cloud Tasks queue"
-if ! "${GCLOUD_BIN}" tasks queues describe "${QUEUE_NAME}" --location="${GCP_REGION}" >/dev/null 2>&1; then
-  "${GCLOUD_BIN}" tasks queues create "${QUEUE_NAME}" \
-    --location="${GCP_REGION}" \
-    --max-concurrent-dispatches=1 \
-    --max-dispatches-per-second=1 >/dev/null
-else
-  "${GCLOUD_BIN}" tasks queues update "${QUEUE_NAME}" \
-    --location="${GCP_REGION}" \
-    --max-concurrent-dispatches=1 \
-    --max-dispatches-per-second=1 >/dev/null
-fi
-
 echo "==> Allowing Cloud Tasks principal to invoke /tasks/handle"
 "${GCLOUD_BIN}" run services add-iam-policy-binding "${SERVICE_NAME}" \
   --region="${GCP_REGION}" \
@@ -143,10 +207,6 @@ echo "==> Allowing Cloud Tasks principal to invoke /tasks/handle"
   --role="roles/run.invoker" >/dev/null
 
 echo "==> Creating/updating weekly Cloud Scheduler drift check"
-HEADER_ARG=()
-if [[ -n "${SCHEDULER_TOKEN}" ]]; then
-  HEADER_ARG=(--headers="X-Scheduler-Token=${SCHEDULER_TOKEN}")
-fi
 
 if "${GCLOUD_BIN}" scheduler jobs describe "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" >/dev/null 2>&1; then
   "${GCLOUD_BIN}" scheduler jobs delete "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" --quiet >/dev/null
@@ -159,7 +219,7 @@ fi
   --uri="${DRIFT_URL}?trigger_retrain=true" \
   --oidc-service-account-email="${TASKS_SA_EMAIL}" \
   --oidc-token-audience="${DRIFT_URL}" \
-  "${HEADER_ARG[@]}" >/dev/null
+  --headers="X-Scheduler-Token=${SCHEDULER_TOKEN}" >/dev/null
 
 cat <<EOF
 Deployment complete.

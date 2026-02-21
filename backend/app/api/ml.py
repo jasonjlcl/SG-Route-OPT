@@ -27,7 +27,9 @@ def _verify_scheduler_token(x_scheduler_token: str | None = Header(default=None)
     settings = get_settings()
     if settings.app_env == "test":
         return
-    if settings.scheduler_token and x_scheduler_token != settings.scheduler_token:
+    if not settings.scheduler_token:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Scheduler token is not configured")
+    if x_scheduler_token != settings.scheduler_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid scheduler token")
 
 

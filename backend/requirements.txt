@@ -3,6 +3,7 @@ uvicorn[standard]==0.35.0
 pydantic==2.11.7
 pydantic-settings==2.10.1
 sqlalchemy==2.0.44
+alembic==1.18.4
 python-multipart==0.0.20
 pandas==2.3.1
 openpyxl==3.1.5
@@ -22,5 +23,6 @@ google-auth==2.40.0
 google-cloud-tasks==2.21.0
 google-cloud-storage==3.2.0
 google-cloud-aiplatform==1.130.0
+psycopg[binary]==3.2.12
 pytest==8.4.1
 pytest-asyncio==1.1.0

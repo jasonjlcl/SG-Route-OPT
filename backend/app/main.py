@@ -8,9 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import datasets, evaluation, health, jobs, ml, plans, stops, tasks
-from app.models import Base
 from app.services.scheduler import start_scheduler, stop_scheduler
-from app.utils.db import SessionLocal, engine, ensure_schema_compatibility
+from app.utils.db import SessionLocal
 from app.utils.errors import AppError, log_error
 from app.utils.settings import get_settings
 
@@ -29,8 +28,6 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup() -> None:
-    Base.metadata.create_all(bind=engine)
-    ensure_schema_compatibility()
     start_scheduler()
 
 

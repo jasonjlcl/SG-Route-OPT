@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 import logging
-import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from redis import Redis
+from rq import Queue
+
+from app.utils.errors import AppError
 from app.utils.settings import get_settings
 
 try:
@@ -30,24 +33,36 @@ def cloud_tasks_enabled() -> bool:
     )
 
 
-def _inline_dispatch(payload: dict[str, Any]) -> None:
+def dispatch_enqueued_task(payload: dict[str, Any]) -> None:
+    kind = str(payload.get("kind") or "pipeline_step").strip().lower()
+    if kind == "job":
+        from app.services.jobs import run_queued_job
+
+        run_queued_job(str(payload.get("job_id") or ""))
+        return
+
     from app.services.job_pipeline import process_task_payload
 
     process_task_payload(payload)
 
 
-def enqueue_step_task(*, job_id: str, step: str, delay_seconds: int = 0) -> None:
-    payload = {"job_id": job_id, "step": step}
+def _enqueue_rq_payload(*, payload: dict[str, Any]) -> None:
     settings = get_settings()
+    redis_conn = Redis.from_url(settings.redis_url)
+    redis_conn.ping()
+    queue = Queue("default", connection=redis_conn)
+    queue.enqueue("app.services.cloud_tasks.dispatch_enqueued_task", payload=payload)
 
-    if settings.jobs_force_inline:
-        _inline_dispatch(payload)
-        return
 
+def _enqueue_cloud_task_payload(*, payload: dict[str, Any], delay_seconds: int = 0) -> None:
+    settings = get_settings()
     if not cloud_tasks_enabled():
-        thread = threading.Thread(target=_inline_dispatch, args=(payload,), daemon=True)
-        thread.start()
-        return
+        raise AppError(
+            message="Cloud Tasks is not configured for cloud mode",
+            error_code="CLOUD_TASKS_NOT_CONFIGURED",
+            status_code=500,
+            stage="TASKS",
+        )
 
     client = tasks_v2.CloudTasksClient()
     queue_path = client.queue_path(settings.gcp_project_id, settings.gcp_region, settings.cloud_tasks_queue)
@@ -74,6 +89,62 @@ def enqueue_step_task(*, job_id: str, step: str, delay_seconds: int = 0) -> None
     try:
         client.create_task(parent=queue_path, task=task)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Cloud Tasks enqueue failed for %s/%s; falling back inline: %s", job_id, step, exc)
-        thread = threading.Thread(target=_inline_dispatch, args=(payload,), daemon=True)
-        thread.start()
+        raise AppError(
+            message="Failed to enqueue Cloud Task",
+            error_code="CLOUD_TASKS_ENQUEUE_FAILED",
+            status_code=503,
+            stage="TASKS",
+            details={"cause": str(exc)},
+        ) from exc
+
+
+def enqueue_step_task(*, job_id: str, step: str, delay_seconds: int = 0) -> None:
+    payload = {"kind": "pipeline_step", "job_id": job_id, "step": step}
+    settings = get_settings()
+
+    if settings.jobs_force_inline:
+        dispatch_enqueued_task(payload)
+        return
+
+    if settings.is_cloud_mode:
+        _enqueue_cloud_task_payload(payload=payload, delay_seconds=delay_seconds)
+        return
+
+    if delay_seconds > 0:
+        logger.warning("delay_seconds is ignored for local RQ dispatch: job=%s step=%s", job_id, step)
+    try:
+        _enqueue_rq_payload(payload=payload)
+    except Exception as exc:  # noqa: BLE001
+        raise AppError(
+            message="Failed to enqueue local step task to RQ",
+            error_code="RQ_ENQUEUE_FAILED",
+            status_code=503,
+            stage="TASKS",
+            details={"cause": str(exc), "job_id": job_id, "step": step},
+        ) from exc
+
+
+def enqueue_job_task(*, job_id: str, delay_seconds: int = 0) -> None:
+    payload = {"kind": "job", "job_id": job_id}
+    settings = get_settings()
+
+    if settings.jobs_force_inline:
+        dispatch_enqueued_task(payload)
+        return
+
+    if settings.is_cloud_mode:
+        _enqueue_cloud_task_payload(payload=payload, delay_seconds=delay_seconds)
+        return
+
+    if delay_seconds > 0:
+        logger.warning("delay_seconds is ignored for local RQ dispatch: job=%s", job_id)
+    try:
+        _enqueue_rq_payload(payload=payload)
+    except Exception as exc:  # noqa: BLE001
+        raise AppError(
+            message="Failed to enqueue local job task to RQ",
+            error_code="RQ_ENQUEUE_FAILED",
+            status_code=503,
+            stage="TASKS",
+            details={"cause": str(exc), "job_id": job_id},
+        ) from exc

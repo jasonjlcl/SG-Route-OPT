@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-frontend dev-worker test-backend docker-up
+.PHONY: dev dev-backend dev-frontend dev-worker db-migrate test-backend docker-up
 
 dev:
 	@echo "Run in separate terminals: make dev-backend, make dev-frontend, and optionally make dev-worker"
@@ -11,6 +11,9 @@ dev-frontend:
 
 dev-worker:
 	cd backend && rq worker default --url redis://localhost:6379/0
+
+db-migrate:
+	cd backend && alembic -c alembic.ini upgrade head
 
 test-backend:
 	cd backend && pytest

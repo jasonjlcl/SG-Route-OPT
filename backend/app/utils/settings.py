@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -63,9 +63,45 @@ class Settings(BaseSettings):
     tasks_auth_required: bool = Field(default=True, alias="TASKS_AUTH_REQUIRED")
     cloud_tasks_audience: str | None = Field(default=None, alias="CLOUD_TASKS_AUDIENCE")
     api_service_account_email: str | None = Field(default=None, alias="API_SERVICE_ACCOUNT_EMAIL")
+    pipeline_step_lease_seconds: int = Field(default=900, alias="PIPELINE_STEP_LEASE_SECONDS")
+    pipeline_retry_drill_step: str | None = Field(default=None, alias="PIPELINE_RETRY_DRILL_STEP")
+    pipeline_retry_drill_delay_seconds: int = Field(default=0, alias="PIPELINE_RETRY_DRILL_DELAY_SECONDS")
 
     scheduler_token: str | None = Field(default=None, alias="SCHEDULER_TOKEN")
     signed_url_ttl_seconds: int = Field(default=3600, alias="SIGNED_URL_TTL_SECONDS")
+
+    @field_validator(
+        "onemap_email",
+        "onemap_password",
+        "maps_static_api_key",
+        "google_routes_api_key",
+        "google_maps_api_key",
+        "cloud_tasks_service_account",
+        "cloud_tasks_audience",
+        "api_service_account_email",
+        "scheduler_token",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_optional_secret(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        cleaned = str(value).strip()
+        return cleaned or None
+
+    @field_validator(
+        "database_url",
+        "app_base_url",
+        "frontend_base_url",
+        "gcp_project_id",
+        "gcp_region",
+        "gcs_bucket",
+        "cloud_tasks_queue",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_required_strings(cls, value: object) -> str:
+        return str(value or "").strip()
 
     @property
     def cors_origins(self) -> list[str]:
@@ -86,6 +122,51 @@ class Settings(BaseSettings):
     @property
     def resolved_google_matrix_max_elements(self) -> int:
         return int(self.google_matrix_max_elements or self.google_max_elements_per_job or 25)
+
+    @property
+    def is_cloud_mode(self) -> bool:
+        return str(self.app_env or "").strip().lower() in {"prod", "production", "staging"}
+
+    @property
+    def is_production_mode(self) -> bool:
+        return str(self.app_env or "").strip().lower() in {"prod", "production"}
+
+    @model_validator(mode="after")
+    def _validate_required_production_settings(self) -> "Settings":
+        if not self.is_production_mode:
+            return self
+
+        missing: list[str] = []
+        if not self.database_url:
+            missing.append("DATABASE_URL")
+        elif self.database_url.startswith("sqlite"):
+            raise ValueError("DATABASE_URL must not use sqlite in production.")
+
+        if not self.gcp_project_id:
+            missing.append("GCP_PROJECT_ID")
+        if not self.gcs_bucket:
+            missing.append("GCS_BUCKET")
+        if not self.cloud_tasks_queue:
+            missing.append("CLOUD_TASKS_QUEUE")
+        if not self.cloud_tasks_service_account:
+            missing.append("CLOUD_TASKS_SERVICE_ACCOUNT")
+        if not self.scheduler_token:
+            missing.append("SCHEDULER_TOKEN")
+        if not self.onemap_email:
+            missing.append("ONEMAP_EMAIL")
+        if not self.onemap_password:
+            missing.append("ONEMAP_PASSWORD")
+
+        if missing:
+            joined = ", ".join(sorted(set(missing)))
+            raise ValueError(f"Missing required production settings: {joined}")
+
+        if not self.tasks_auth_required:
+            raise ValueError("TASKS_AUTH_REQUIRED must be true in production.")
+        if self.feature_google_traffic and not self.resolved_google_routes_api_key:
+            raise ValueError("GOOGLE_ROUTES_API_KEY (or GOOGLE_MAPS_API_KEY) is required when FEATURE_GOOGLE_TRAFFIC=true.")
+
+        return self
 
 
 @lru_cache(maxsize=1)

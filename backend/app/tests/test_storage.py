@@ -45,3 +45,41 @@ def test_signed_download_url_uses_iam_fallback_when_private_key_missing(monkeypa
     assert len(fake_blob.calls) == 2
     assert fake_blob.calls[1]["service_account_email"] == "route-app-api-sa@example.iam.gserviceaccount.com"
     assert fake_blob.calls[1]["access_token"] == "token-abc"
+
+
+def test_download_bytes_reads_local_artifact(monkeypatch, tmp_path):
+    monkeypatch.setattr(storage_service, "STORAGE_AVAILABLE", False)
+    monkeypatch.setattr(storage_service, "LOCAL_ARTIFACT_DIR", tmp_path)
+
+    target = tmp_path / "matrix" / "job-1.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b'{"ok":true}')
+
+    payload = storage_service.download_bytes(object_path="matrix/job-1.json")
+
+    assert payload == b'{"ok":true}'
+
+
+def test_download_bytes_reads_gcs_when_enabled(monkeypatch):
+    class FakeBlob:
+        def download_as_bytes(self):
+            return b'{"storage":"gcs"}'
+
+    class FakeBucket:
+        def blob(self, _name: str):
+            return FakeBlob()
+
+    class FakeClient:
+        def __init__(self, project=None) -> None:
+            self.project = project
+
+        def bucket(self, _bucket_name: str):
+            return FakeBucket()
+
+    monkeypatch.setattr(storage_service, "STORAGE_AVAILABLE", True)
+    monkeypatch.setattr(storage_service, "_bucket_name", lambda: "route_app")
+    monkeypatch.setattr(storage_service, "storage", SimpleNamespace(Client=FakeClient), raising=False)
+
+    payload = storage_service.download_bytes(object_path="matrix/job-2.json")
+
+    assert payload == b'{"storage":"gcs"}'

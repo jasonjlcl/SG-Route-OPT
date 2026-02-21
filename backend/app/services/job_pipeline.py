@@ -18,10 +18,12 @@ from app.services.jobs import (
     fail_step,
     get_job_or_404,
     get_steps_state,
+    has_step_lock,
     lock_step,
     parse_payload,
     parse_result_ref,
     set_job_status,
+    touch_step_lease,
 )
 from app.services.ml_features import build_feature_dict
 from app.services.ml_ops import get_latest_rollout, get_model_metadata
@@ -32,7 +34,7 @@ from app.services.optimization import (
     save_matrix_artifact,
     solve_optimization_from_artifact,
 )
-from app.services.storage import signed_download_url, upload_bytes
+from app.services.storage import download_bytes, signed_download_url, upload_bytes
 from app.services.vertex_ai import run_vertex_batch_prediction
 from app.utils.db import SessionLocal
 from app.utils.errors import AppError
@@ -52,6 +54,10 @@ STEP_PROGRESS_RANGE = {
     "OPTIMIZE": (66, 90),
     "GENERATE_EXPORTS": (91, 100),
 }
+
+
+class InjectedRetryDrillError(RuntimeError):
+    """Synthetic failure to force Cloud Tasks redelivery during retry drills."""
 
 
 def _init_steps_state() -> dict[str, dict[str, Any]]:
@@ -87,7 +93,7 @@ def _merge_result(db, *, job_id: str, partial: dict[str, Any]) -> None:
     )
 
 
-def _progress_emitter(job_id: str, step: str) -> Callable[[int, str], None]:
+def _progress_emitter(job_id: str, step: str, *, lock_token: str) -> Callable[[int, str], None]:
     start, end = STEP_PROGRESS_RANGE[step]
 
     def _emit(inner_progress: int, message: str) -> None:
@@ -95,6 +101,8 @@ def _progress_emitter(job_id: str, step: str) -> Callable[[int, str], None]:
         for attempt in range(3):
             db = SessionLocal()
             try:
+                if not touch_step_lease(db, job_id=job_id, step=step, lock_token=lock_token):
+                    return
                 set_job_status(
                     db,
                     job_id=job_id,
@@ -117,6 +125,31 @@ def _progress_emitter(job_id: str, step: str) -> Callable[[int, str], None]:
                 db.close()
 
     return _emit
+
+
+def _maybe_inject_retry_drill(db, *, job_id: str, step: str) -> None:
+    settings = get_settings()
+    configured_step = str(settings.pipeline_retry_drill_step or "").strip().upper()
+    delay_seconds = max(0, int(settings.pipeline_retry_drill_delay_seconds or 0))
+    if not configured_step or configured_step != step or delay_seconds <= 0:
+        return
+    if not settings.is_cloud_mode:
+        return
+
+    job = get_job_or_404(db, job_id)
+    steps = get_steps_state(job)
+    entry = steps.get(step)
+    if not isinstance(entry, dict):
+        return
+    if bool(entry.get("retry_drill_injected")):
+        return
+
+    entry["retry_drill_injected"] = True
+    entry["retry_drill_injected_at"] = datetime.utcnow().isoformat()
+    job.steps_json = json.dumps(steps)
+    db.commit()
+    time.sleep(delay_seconds)
+    raise InjectedRetryDrillError(f"Injected retry drill abort for step={step}")
 
 
 def create_optimize_pipeline_job(
@@ -162,7 +195,7 @@ def create_optimize_pipeline_job(
     return job
 
 
-def _run_geocode_step(*, job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _run_geocode_step(*, job_id: str, payload: dict[str, Any], lock_token: str) -> dict[str, Any]:
     db = SessionLocal()
     try:
         dataset_id = int(payload["dataset_id"])
@@ -170,7 +203,13 @@ def _run_geocode_step(*, job_id: str, payload: dict[str, Any]) -> dict[str, Any]
         if dataset is not None:
             dataset.status = "GEOCODING_RUNNING"
             db.commit()
-        result = geocode_dataset(db, dataset_id, failed_only=False, force_all=False, progress_cb=_progress_emitter(job_id, "GEOCODE"))
+        result = geocode_dataset(
+            db,
+            dataset_id,
+            failed_only=False,
+            force_all=False,
+            progress_cb=_progress_emitter(job_id, "GEOCODE", lock_token=lock_token),
+        )
         return {"geocode": result}
     finally:
         db.close()
@@ -270,7 +309,7 @@ def _apply_vertex_batch_if_enabled(db, *, job_id: str, artifact: dict[str, Any])
     return {"vertex_batch_used": True, "model_version": str(active_version), "bucket_cache_size": len(unique_keys)}
 
 
-def _run_build_matrix_step(*, job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _run_build_matrix_step(*, job_id: str, payload: dict[str, Any], lock_token: str) -> dict[str, Any]:
     db = SessionLocal()
     try:
         dataset_id = int(payload["dataset_id"])
@@ -279,7 +318,7 @@ def _run_build_matrix_step(*, job_id: str, payload: dict[str, Any]) -> dict[str,
             db,
             dataset_id=dataset_id,
             payload=optimization_payload,
-            progress_cb=_progress_emitter(job_id, "BUILD_MATRIX"),
+            progress_cb=_progress_emitter(job_id, "BUILD_MATRIX", lock_token=lock_token),
         )
         vertex_meta = _apply_vertex_batch_if_enabled(db, job_id=job_id, artifact=artifact)
         artifact_path = save_matrix_artifact(dataset_id=dataset_id, job_id=job_id, artifact=artifact)
@@ -299,7 +338,59 @@ def _run_build_matrix_step(*, job_id: str, payload: dict[str, Any]) -> dict[str,
         db.close()
 
 
-def _run_optimize_step(*, job_id: str, payload: dict[str, Any], result_ref: dict[str, Any]) -> dict[str, Any]:
+def _load_matrix_artifact_for_optimize(*, result_ref: dict[str, Any]) -> dict[str, Any]:
+    errors: list[str] = []
+    artifact_ref = result_ref.get("matrix_artifact_ref")
+
+    if isinstance(artifact_ref, dict):
+        object_path = str(artifact_ref.get("object_path") or "").strip()
+        if object_path:
+            try:
+                payload = download_bytes(object_path=object_path)
+                if payload is not None:
+                    return json.loads(payload.decode("utf-8"))
+                errors.append(f"object_path_not_found:{object_path}")
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"object_path_read_failed:{object_path}:{exc}")
+
+        file_path = str(artifact_ref.get("file_path") or "").strip()
+        if file_path:
+            try:
+                return load_matrix_artifact(file_path)
+            except AppError as exc:
+                errors.append(f"file_path_load_failed:{file_path}:{exc.error_code}")
+
+    artifact_path = str(result_ref.get("matrix_artifact_path") or "").strip()
+    if artifact_path:
+        try:
+            return load_matrix_artifact(artifact_path)
+        except AppError as exc:
+            errors.append(f"matrix_path_load_failed:{artifact_path}:{exc.error_code}")
+
+    if not errors:
+        raise AppError(
+            message="Matrix artifact missing for OPTIMIZE step",
+            error_code="MATRIX_ARTIFACT_MISSING",
+            status_code=500,
+            stage="OPTIMIZATION",
+        )
+
+    raise AppError(
+        message="Matrix artifact could not be loaded for OPTIMIZE step",
+        error_code="MATRIX_ARTIFACT_LOAD_FAILED",
+        status_code=500,
+        stage="OPTIMIZATION",
+        details={"attempts": errors},
+    )
+
+
+def _run_optimize_step(
+    *,
+    job_id: str,
+    payload: dict[str, Any],
+    result_ref: dict[str, Any],
+    lock_token: str,
+) -> dict[str, Any]:
     db = SessionLocal()
     try:
         dataset = db.get(Dataset, int(payload["dataset_id"]))
@@ -307,29 +398,21 @@ def _run_optimize_step(*, job_id: str, payload: dict[str, Any], result_ref: dict
             dataset.status = "OPTIMIZATION_RUNNING"
             db.commit()
 
-        artifact_path = result_ref.get("matrix_artifact_path")
-        if not artifact_path:
-            raise AppError(
-                message="Matrix artifact missing for OPTIMIZE step",
-                error_code="MATRIX_ARTIFACT_MISSING",
-                status_code=500,
-                stage="OPTIMIZATION",
-            )
-        artifact = load_matrix_artifact(str(artifact_path))
+        artifact = _load_matrix_artifact_for_optimize(result_ref=result_ref)
         optimize_payload = _payload_to_optimization_payload(payload)
         optimize_result = solve_optimization_from_artifact(
             db,
             dataset_id=int(payload["dataset_id"]),
             payload=optimize_payload,
             artifact=artifact,
-            progress_cb=_progress_emitter(job_id, "OPTIMIZE"),
+            progress_cb=_progress_emitter(job_id, "OPTIMIZE", lock_token=lock_token),
         )
         return {"optimize": optimize_result, "plan_id": optimize_result.get("plan_id")}
     finally:
         db.close()
 
 
-def _run_generate_exports_step(*, job_id: str, result_ref: dict[str, Any]) -> dict[str, Any]:
+def _run_generate_exports_step(*, job_id: str, result_ref: dict[str, Any], lock_token: str) -> dict[str, Any]:
     db = SessionLocal()
     try:
         optimize_result = result_ref.get("optimize") or {}
@@ -347,7 +430,7 @@ def _run_generate_exports_step(*, job_id: str, result_ref: dict[str, Any]) -> di
 
         route_rows = db.query(Route).filter(Route.plan_id == plan_id).all()
         map_results: list[dict[str, Any]] = []
-        step_progress = _progress_emitter(job_id, "GENERATE_EXPORTS")
+        step_progress = _progress_emitter(job_id, "GENERATE_EXPORTS", lock_token=lock_token)
         total_routes = max(1, len(route_rows))
 
         for idx, route in enumerate(route_rows):
@@ -415,6 +498,16 @@ def process_task_payload(task_payload: dict[str, Any]) -> None:
             next_state = (steps.get(next_step) or {}).get("status") if next_step else None
             if step_state == "SUCCEEDED" and next_step and next_state in {None, "PENDING"}:
                 enqueue_step_task(job_id=job_id, step=next_step)
+            elif step_state == "SUCCEEDED" and next_step is None and job.status != "SUCCEEDED":
+                set_job_status(
+                    db,
+                    job_id=job_id,
+                    status="SUCCEEDED",
+                    progress_pct=100,
+                    current_step=step,
+                    message="All optimization steps completed",
+                    result_ref=parse_result_ref(job) or {},
+                )
             return
 
         set_job_status(
@@ -425,20 +518,24 @@ def process_task_payload(task_payload: dict[str, Any]) -> None:
             current_step=step,
             message=f"Running {step}",
         )
+        _maybe_inject_retry_drill(db, job_id=job_id, step=step)
 
         payload = parse_payload(job)
         result_ref = parse_result_ref(job) or {}
 
         if step == "GEOCODE":
-            partial = _run_geocode_step(job_id=job_id, payload=payload)
+            partial = _run_geocode_step(job_id=job_id, payload=payload, lock_token=lock_token)
         elif step == "BUILD_MATRIX":
-            partial = _run_build_matrix_step(job_id=job_id, payload=payload)
+            partial = _run_build_matrix_step(job_id=job_id, payload=payload, lock_token=lock_token)
         elif step == "OPTIMIZE":
-            partial = _run_optimize_step(job_id=job_id, payload=payload, result_ref=result_ref)
+            partial = _run_optimize_step(job_id=job_id, payload=payload, result_ref=result_ref, lock_token=lock_token)
         elif step == "GENERATE_EXPORTS":
-            partial = _run_generate_exports_step(job_id=job_id, result_ref=result_ref)
+            partial = _run_generate_exports_step(job_id=job_id, result_ref=result_ref, lock_token=lock_token)
         else:
             partial = {}
+
+        if not has_step_lock(db, job_id=job_id, step=step, lock_token=lock_token):
+            return
 
         _merge_result(db, job_id=job_id, partial=partial)
         complete_step(
@@ -465,6 +562,8 @@ def process_task_payload(task_payload: dict[str, Any]) -> None:
             message="All optimization steps completed",
             result_ref=parse_result_ref(latest) or {},
         )
+    except InjectedRetryDrillError:
+        raise
     except AppError as exc:
         fail_step(
             db,

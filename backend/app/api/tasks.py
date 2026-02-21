@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from app.services.job_pipeline import process_task_payload
+from app.services.cloud_tasks import dispatch_enqueued_task
 from app.utils.settings import get_settings
 
 try:
@@ -51,5 +51,5 @@ def _verify_cloud_tasks_oidc(request: Request) -> None:
 
 @router.post("/handle")
 def handle_task(payload: dict[str, Any], _: None = Depends(_verify_cloud_tasks_oidc)) -> dict[str, Any]:
-    process_task_payload(payload)
+    dispatch_enqueued_task(payload)
     return {"ok": True}
