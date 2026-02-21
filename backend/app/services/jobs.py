@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 import uuid
 from datetime import datetime
 from typing import Any
 
 from redis import Redis
 from rq import Queue, Worker
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.models import Job
@@ -34,6 +36,18 @@ def _empty_steps_state() -> dict[str, dict[str, Any]]:
     return {}
 
 
+def _commit_with_retry(db: Session, *, attempts: int = 3, base_sleep_s: float = 0.1) -> None:
+    for attempt in range(1, attempts + 1):
+        try:
+            db.commit()
+            return
+        except OperationalError as exc:
+            db.rollback()
+            if "database is locked" not in str(exc).lower() or attempt >= attempts:
+                raise
+            time.sleep(base_sleep_s * attempt)
+
+
 def create_job(db: Session, *, job_type: str, payload: dict[str, Any]) -> Job:
     job = Job(
         id=f"job_{uuid.uuid4().hex}",
@@ -46,7 +60,7 @@ def create_job(db: Session, *, job_type: str, payload: dict[str, Any]) -> Job:
         steps_json=_json(_empty_steps_state()),
     )
     db.add(job)
-    db.commit()
+    _commit_with_retry(db)
     db.refresh(job)
     return job
 
@@ -96,7 +110,7 @@ def set_job_status(
         job.error_code = None
         job.error_detail = None
     job.updated_at = datetime.utcnow()
-    db.commit()
+    _commit_with_retry(db)
     db.refresh(job)
     return job
 
@@ -129,7 +143,7 @@ def save_steps_state(db: Session, *, job_id: str, steps_state: dict[str, dict[st
     job = get_job_or_404(db, job_id)
     job.steps_json = _json(steps_state)
     job.updated_at = datetime.utcnow()
-    db.commit()
+    _commit_with_retry(db)
     db.refresh(job)
     return job
 
@@ -159,7 +173,7 @@ def lock_step(db: Session, *, job_id: str, step: str, lock_token: str) -> bool:
     job.steps_json = _json(steps)
     job.current_step = step
     job.updated_at = datetime.utcnow()
-    db.commit()
+    _commit_with_retry(db)
     return True
 
 

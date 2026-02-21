@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -86,6 +87,19 @@ class SolverConfig(BaseModel):
     allow_drop_visits: bool = False
 
 
+def _validate_workday_fields(workday_start: str, workday_end: str) -> tuple[str, str]:
+    try:
+        start_dt = datetime.strptime(str(workday_start), "%H:%M")
+        end_dt = datetime.strptime(str(workday_end), "%H:%M")
+    except ValueError as exc:
+        raise ValueError("workday_start/workday_end must be HH:MM (24-hour)") from exc
+
+    if start_dt >= end_dt:
+        raise ValueError("workday_start must be earlier than workday_end")
+
+    return start_dt.strftime("%H:%M"), end_dt.strftime("%H:%M")
+
+
 class OptimizeRequest(BaseModel):
     depot_lat: float = Field(ge=-90, le=90)
     depot_lon: float = Field(ge=-180, le=180)
@@ -94,6 +108,11 @@ class OptimizeRequest(BaseModel):
     workday_end: str = "18:00"
     solver: SolverConfig = SolverConfig()
     use_live_traffic: bool = False
+
+    @model_validator(mode="after")
+    def ensure_workday_window(self) -> "OptimizeRequest":
+        self.workday_start, self.workday_end = _validate_workday_fields(self.workday_start, self.workday_end)
+        return self
 
 
 class OptimizeExperimentRequest(OptimizeRequest):
@@ -110,6 +129,11 @@ class OptimizeJobRequest(BaseModel):
     solver: SolverConfig = SolverConfig()
     use_live_traffic: bool = False
 
+    @model_validator(mode="after")
+    def ensure_workday_window(self) -> "OptimizeJobRequest":
+        self.workday_start, self.workday_end = _validate_workday_fields(self.workday_start, self.workday_end)
+        return self
+
 
 class EvaluationRunRequest(BaseModel):
     dataset_id: int = Field(gt=0)
@@ -120,6 +144,11 @@ class EvaluationRunRequest(BaseModel):
     workday_end: str = "18:00"
     solver: SolverConfig = SolverConfig()
     sample_limit: int = Field(default=5000, ge=100, le=100000)
+
+    @model_validator(mode="after")
+    def ensure_workday_window(self) -> "EvaluationRunRequest":
+        self.workday_start, self.workday_end = _validate_workday_fields(self.workday_start, self.workday_end)
+        return self
 
 
 class OptimizeResponse(BaseModel):

@@ -61,8 +61,33 @@ def _ensure_wgs84(lat: float, lon: float) -> tuple[float, float]:
 
 
 def _hhmm_to_seconds(value: str) -> int:
-    hh, mm = value.split(":")
-    return int(hh) * 3600 + int(mm) * 60
+    dt = datetime.strptime(str(value), "%H:%M")
+    return dt.hour * 3600 + dt.minute * 60
+
+
+def _validated_workday_window(*, workday_start: str, workday_end: str) -> tuple[int, int]:
+    try:
+        start_s = _hhmm_to_seconds(workday_start)
+        end_s = _hhmm_to_seconds(workday_end)
+    except ValueError as exc:
+        raise AppError(
+            message="workday_start/workday_end must be HH:MM (24-hour)",
+            error_code="VALIDATION_ERROR",
+            status_code=400,
+            stage="OPTIMIZATION",
+            details={"workday_start": workday_start, "workday_end": workday_end},
+        ) from exc
+
+    if start_s >= end_s:
+        raise AppError(
+            message="workday_start must be earlier than workday_end",
+            error_code="VALIDATION_ERROR",
+            status_code=400,
+            stage="OPTIMIZATION",
+            details={"workday_start": workday_start, "workday_end": workday_end},
+        )
+
+    return start_s, end_s
 
 
 def _seconds_to_iso(seconds_since_midnight: int) -> str:
@@ -457,7 +482,7 @@ def build_optimization_matrix_artifact(
         else:
             LOGGER.warning("ML uplift prediction unavailable; keeping baseline duration matrix.")
 
-    workday_window = (_hhmm_to_seconds(payload.workday_start), _hhmm_to_seconds(payload.workday_end))
+    workday_window = _validated_workday_window(workday_start=payload.workday_start, workday_end=payload.workday_end)
     time_windows: list[tuple[int, int]] = [workday_window]
     service_times = [0]
     demands = [0]
@@ -548,6 +573,8 @@ def optimize_dataset(
     *,
     progress_cb: Callable[[int, str], None] | None = None,
 ) -> dict[str, Any]:
+    _validated_workday_window(workday_start=payload.workday_start, workday_end=payload.workday_end)
+
     if payload.num_vehicles <= 0:
         raise AppError(
             message="num_vehicles must be > 0",
@@ -607,15 +634,33 @@ def solve_optimization_from_artifact(
     time_windows = [tuple(map(int, pair)) for pair in artifact.get("time_windows", [])]
     service_times = [int(v) for v in artifact.get("service_times_s", [])]
     demands = [int(v) for v in artifact.get("demands", [])]
-    workday_window_raw = artifact.get("workday_window", [_hhmm_to_seconds(payload.workday_start), _hhmm_to_seconds(payload.workday_end)])
-    workday_window = (int(workday_window_raw[0]), int(workday_window_raw[1]))
+    payload_window = _validated_workday_window(workday_start=payload.workday_start, workday_end=payload.workday_end)
+    workday_window_raw = artifact.get("workday_window", [payload_window[0], payload_window[1]])
+    try:
+        workday_window = (int(workday_window_raw[0]), int(workday_window_raw[1]))
+    except (TypeError, ValueError, IndexError) as exc:
+        raise AppError(
+            message="Optimization artifact has invalid workday_window",
+            error_code="MATRIX_ARTIFACT_INVALID",
+            status_code=400,
+            stage="OPTIMIZATION",
+            details={"workday_window": workday_window_raw},
+        ) from exc
+    if workday_window[0] >= workday_window[1]:
+        raise AppError(
+            message="Optimization artifact has invalid workday_window ordering",
+            error_code="MATRIX_ARTIFACT_INVALID",
+            status_code=400,
+            stage="OPTIMIZATION",
+            details={"workday_window": [workday_window[0], workday_window[1]]},
+        )
 
     stop_ids = [int(node["stop_id"]) for node in nodes if node.get("stop_id") is not None]
     stop_rows = db.execute(select(Stop).where(Stop.id.in_(stop_ids))).scalars().all() if stop_ids else []
     stop_by_id = {stop.id: stop for stop in stop_rows}
     ordered_stops = [stop_by_id[node["stop_id"]] for node in nodes if node.get("stop_id") in stop_by_id]
 
-    if payload.capacity is not None:
+    if payload.capacity is not None and not payload.allow_drop_visits:
         total_demand = sum(demands)
         if total_demand > payload.capacity * payload.num_vehicles:
             reason, suggestions = _categorize_infeasibility(ordered_stops, payload)

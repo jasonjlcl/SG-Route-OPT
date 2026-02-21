@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     onemap_auth_url: str = Field(default="https://www.onemap.gov.sg/api/auth/post/getToken", alias="ONEMAP_AUTH_URL")
     onemap_search_url: str = Field(default="https://www.onemap.gov.sg/api/common/elastic/search", alias="ONEMAP_SEARCH_URL")
     onemap_routing_url: str = Field(default="https://www.onemap.gov.sg/api/public/routingsvc/route", alias="ONEMAP_ROUTING_URL")
+    onemap_reverse_geocode_url: str = Field(
+        default="https://www.onemap.gov.sg/api/public/revgeocode",
+        alias="ONEMAP_REVERSE_GEOCODE_URL",
+    )
     app_base_url: str = Field(default="http://localhost:8000", alias="APP_BASE_URL")
     frontend_base_url: str = Field(default="http://localhost:5173", alias="FRONTEND_BASE_URL")
     jobs_force_inline: bool = Field(default=False, alias="JOBS_FORCE_INLINE")

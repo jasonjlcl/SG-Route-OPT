@@ -18,6 +18,9 @@ class BaseRoute:
 
 
 class RoutingService:
+    FALLBACK_CACHE_TTL_SECONDS = 300
+    BASE_CACHE_TTL_SECONDS = 24 * 3600
+
     def __init__(self) -> None:
         self.cache = get_cache()
         self.client = get_onemap_client()
@@ -91,12 +94,33 @@ class RoutingService:
                     "od_cache_id": existing.id,
                     "distance_m": existing.base_distance_m,
                     "duration_s": existing.base_duration_s,
+                    "is_fallback": False,
+                    "route_source": "onemap",
                 },
-                ttl_seconds=24 * 3600,
+                ttl_seconds=self.BASE_CACHE_TTL_SECONDS,
             )
             return BaseRoute(od_cache_id=existing.id, distance_m=existing.base_distance_m, duration_s=existing.base_duration_s)
 
         route = self.client.route(origin_lat, origin_lon, dest_lat, dest_lon)
+        route_distance = float(route["distance_m"])
+        route_duration = float(route["duration_s"])
+        is_fallback = bool(route.get("is_fallback", False))
+        route_source = str(route.get("source") or "")
+
+        if is_fallback:
+            self.cache.set(
+                key,
+                {
+                    "od_cache_id": -1,
+                    "distance_m": route_distance,
+                    "duration_s": route_duration,
+                    "is_fallback": True,
+                    "route_source": route_source,
+                },
+                ttl_seconds=self.FALLBACK_CACHE_TTL_SECONDS,
+            )
+            return BaseRoute(od_cache_id=-1, distance_m=route_distance, duration_s=route_duration)
+
         record = OdCache(
             origin_lat=self._round(origin_lat),
             origin_lon=self._round(origin_lon),
@@ -104,8 +128,8 @@ class RoutingService:
             dest_lon=self._round(dest_lon),
             depart_bucket=depart_bucket,
             day_of_week=day_of_week,
-            base_distance_m=float(route["distance_m"]),
-            base_duration_s=float(route["duration_s"]),
+            base_distance_m=route_distance,
+            base_duration_s=route_duration,
         )
         db.add(record)
         db.commit()
@@ -117,8 +141,10 @@ class RoutingService:
                 "od_cache_id": record.id,
                 "distance_m": record.base_distance_m,
                 "duration_s": record.base_duration_s,
+                "is_fallback": False,
+                "route_source": route_source or "onemap",
             },
-            ttl_seconds=24 * 3600,
+            ttl_seconds=self.BASE_CACHE_TTL_SECONDS,
         )
 
         return BaseRoute(od_cache_id=record.id, distance_m=record.base_distance_m, duration_s=record.base_duration_s)

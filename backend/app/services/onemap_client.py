@@ -27,6 +27,11 @@ class OneMapClient:
     def mock_mode(self) -> bool:
         return not self.settings.onemap_email or not self.settings.onemap_password
 
+    @property
+    def allow_mock_fallback(self) -> bool:
+        env = str(self.settings.app_env or "").strip().lower()
+        return env in {"dev", "test", "local"}
+
     def _token_cache_key(self) -> str:
         return "onemap:access_token"
 
@@ -125,7 +130,55 @@ class OneMapClient:
         sleep_time = min(4.0, (2**attempt) * 0.25 + random.random() * 0.15)
         time.sleep(sleep_time)
 
+    @staticmethod
+    def _text_or_none(value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        if text.lower() in {"none", "null", "nil", "<na>", "na"}:
+            return None
+        return text
+
+    def _parse_reverse_geocode_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        candidates: list[dict[str, Any]] = []
+        geocode_info = payload.get("GeocodeInfo")
+        if isinstance(geocode_info, list):
+            candidates.extend([item for item in geocode_info if isinstance(item, dict)])
+        results = payload.get("results")
+        if isinstance(results, list):
+            candidates.extend([item for item in results if isinstance(item, dict)])
+
+        if not candidates:
+            raise RuntimeError("No reverse geocode result")
+
+        first = candidates[0]
+        postal = (
+            self._text_or_none(first.get("POSTALCODE"))
+            or self._text_or_none(first.get("POSTAL"))
+            or self._text_or_none(first.get("POSTAL_CD"))
+        )
+        address = self._text_or_none(first.get("ADDRESS"))
+        if not address:
+            parts = [
+                self._text_or_none(first.get("BLK_NO")),
+                self._text_or_none(first.get("ROAD")),
+                self._text_or_none(first.get("BUILDINGNAME")),
+            ]
+            address = " ".join([part for part in parts if part]) or None
+
+        return {
+            "address": address,
+            "postal_code": postal,
+            "source": "onemap",
+            "raw": first,
+        }
+
     def search(self, query: str) -> dict[str, Any]:
+        if self.mock_mode and not self.allow_mock_fallback:
+            raise RuntimeError("OneMap credentials are missing; mock geocoding is disabled outside dev/test.")
+
         params = {
             "searchVal": query,
             "returnGeom": "Y",
@@ -138,9 +191,12 @@ class OneMapClient:
                 self.settings.onemap_search_url,
                 params=params,
             )
-        except Exception:
-            # Search endpoint is generally public, but if unavailable, keep local dev usable.
+        except Exception as exc:
+            if not self.allow_mock_fallback:
+                raise
+            # Keep local development usable when OneMap search is unavailable.
             lat, lon = self._mock_lat_lon(query)
+            LOGGER.warning("OneMap search fallback to mock geocode for query '%s': %s", query, str(exc))
             return {
                 "found": 1,
                 "results": [
@@ -154,6 +210,34 @@ class OneMapClient:
                 ],
             }
 
+    def reverse_geocode(self, lat: float, lon: float) -> dict[str, Any]:
+        if self.mock_mode and not self.allow_mock_fallback:
+            raise RuntimeError("OneMap credentials are missing; reverse geocoding is disabled outside dev/test.")
+
+        params = {
+            "location": f"{float(lat):.6f},{float(lon):.6f}",
+            "buffer": 40,
+            "addressType": "All",
+            "otherFeatures": "Y",
+        }
+        try:
+            payload = self._request_with_retries(
+                "GET",
+                self.settings.onemap_reverse_geocode_url,
+                params=params,
+            )
+            return self._parse_reverse_geocode_payload(payload)
+        except Exception as exc:
+            if not self.allow_mock_fallback:
+                raise
+            LOGGER.warning("OneMap reverse geocode fallback to mock for lat=%s lon=%s: %s", lat, lon, str(exc))
+            return {
+                "address": f"Lat {float(lat):.6f}, Lon {float(lon):.6f}",
+                "postal_code": "000000",
+                "source": "mock",
+                "raw": {"error": str(exc)},
+            }
+
     def route(
         self,
         origin_lat: float,
@@ -161,11 +245,16 @@ class OneMapClient:
         dest_lat: float,
         dest_lon: float,
         route_type: str = "drive",
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         if self.mock_mode:
             distance = self._haversine_m(origin_lat, origin_lon, dest_lat, dest_lon)
             duration = max(30.0, distance / 9.0)
-            return {"distance_m": distance, "duration_s": duration}
+            return {
+                "distance_m": distance,
+                "duration_s": duration,
+                "source": "mock",
+                "is_fallback": True,
+            }
         try:
             data = self._request_with_retries(
                 "GET",
@@ -182,7 +271,12 @@ class OneMapClient:
             duration = float(summary.get("total_time") or 0)
             if distance <= 0 or duration <= 0:
                 raise RuntimeError("Invalid OneMap routing response")
-            return {"distance_m": distance, "duration_s": duration}
+            return {
+                "distance_m": distance,
+                "duration_s": duration,
+                "source": "onemap",
+                "is_fallback": False,
+            }
         except Exception as exc:  # noqa: BLE001
             # Keep optimization resilient when OneMap traffic/routing is flaky.
             fallback_distance = max(1.0, self._haversine_m(origin_lat, origin_lon, dest_lat, dest_lon) * 1.2)
@@ -191,7 +285,12 @@ class OneMapClient:
                 "OneMap route fallback to heuristic estimate: %s",
                 str(exc),
             )
-            return {"distance_m": fallback_distance, "duration_s": fallback_duration}
+            return {
+                "distance_m": fallback_distance,
+                "duration_s": fallback_duration,
+                "source": "heuristic_fallback",
+                "is_fallback": True,
+            }
 
     @staticmethod
     def _extract_postal(query: str) -> str:

@@ -150,16 +150,44 @@ def manual_resolve_stop(
 
     if lat is not None and lon is not None:
         normalized_lat, normalized_lon = _normalize_wgs84(lat, lon)
+        resolved_address = _clean_query_text(corrected_address)
+        resolved_postal = _clean_query_text(corrected_postal_code)
+        reverse_source: str | None = None
+
+        if resolved_address is None or resolved_postal is None:
+            try:
+                reverse = get_onemap_client().reverse_geocode(normalized_lat, normalized_lon)
+                reverse_source = str(reverse.get("source") or "")
+                if resolved_address is None:
+                    resolved_address = _clean_query_text(reverse.get("address"))
+                if resolved_postal is None:
+                    resolved_postal = _clean_query_text(reverse.get("postal_code"))
+            except Exception as exc:  # noqa: BLE001
+                log_error(
+                    db,
+                    "GEOCODING",
+                    str(exc),
+                    dataset_id=stop.dataset_id,
+                    details={"stop_id": stop.id, "op": "reverse_geocode", "lat": normalized_lat, "lon": normalized_lon},
+                )
+
         stop.lat = normalized_lat
         stop.lon = normalized_lon
-        if corrected_address:
-            stop.address = corrected_address
-        if corrected_postal_code:
-            stop.postal_code = corrected_postal_code
+        if resolved_address:
+            stop.address = resolved_address
+        if resolved_postal:
+            stop.postal_code = resolved_postal
         stop.geocode_status = "MANUAL"
-        stop.geocode_meta = json.dumps({"source": "manual_pin"})
+        stop.geocode_meta = json.dumps({"source": "manual_pin", "reverse_source": reverse_source})
         db.commit()
-        return {"stop_id": stop.id, "status": stop.geocode_status, "lat": stop.lat, "lon": stop.lon}
+        return {
+            "stop_id": stop.id,
+            "status": stop.geocode_status,
+            "lat": stop.lat,
+            "lon": stop.lon,
+            "address": stop.address,
+            "postal_code": stop.postal_code,
+        }
 
     query = _clean_query_text(corrected_address) or _clean_query_text(corrected_postal_code)
     if not query:

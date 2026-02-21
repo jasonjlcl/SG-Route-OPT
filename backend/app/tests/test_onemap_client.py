@@ -81,3 +81,48 @@ def test_onemap_client_route_fallback_on_failure(monkeypatch):
     route = client.route(1.3000, 103.8000, 1.3200, 103.8200)
     assert route["distance_m"] > 0
     assert route["duration_s"] > 0
+
+
+def test_onemap_search_does_not_mock_in_prod(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "prod")
+    monkeypatch.setenv("ONEMAP_EMAIL", "user@example.com")
+    monkeypatch.setenv("ONEMAP_PASSWORD", "secret")
+    get_settings.cache_clear()
+
+    client = OneMapClient()
+
+    def fail_request(*args, **kwargs):
+        raise RuntimeError("search unavailable")
+
+    monkeypatch.setattr(client, "_request_with_retries", fail_request)
+
+    import pytest
+
+    with pytest.raises(RuntimeError):
+        client.search("10 Bayfront Avenue")
+
+
+def test_onemap_reverse_geocode_parses_payload(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("ONEMAP_EMAIL", "user@example.com")
+    monkeypatch.setenv("ONEMAP_PASSWORD", "secret")
+    get_settings.cache_clear()
+
+    client = OneMapClient()
+    monkeypatch.setattr(
+        client,
+        "_request_with_retries",
+        lambda *args, **kwargs: {
+            "GeocodeInfo": [
+                {
+                    "BLK_NO": "1",
+                    "ROAD": "Raffles Place",
+                    "POSTALCODE": "048616",
+                }
+            ]
+        },
+    )
+
+    result = client.reverse_geocode(1.284, 103.851)
+    assert result["postal_code"] == "048616"
+    assert "Raffles Place" in (result["address"] or "")

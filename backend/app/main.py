@@ -49,11 +49,7 @@ async def structured_error_middleware(request: Request, call_next):
         response.headers["X-Correlation-ID"] = correlation_id
         return response
     except AppError as exc:
-        db = SessionLocal()
-        try:
-            log_error(db, exc.stage, exc.message, dataset_id=exc.dataset_id, details=exc.details)
-        finally:
-            db.close()
+        _safe_log_error(stage=exc.stage, message=exc.message, dataset_id=exc.dataset_id, details=exc.details)
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -64,11 +60,7 @@ async def structured_error_middleware(request: Request, call_next):
             },
         )
     except Exception as exc:  # noqa: BLE001
-        db = SessionLocal()
-        try:
-            log_error(db, "API", str(exc), details={"traceback": traceback.format_exc()})
-        finally:
-            db.close()
+        _safe_log_error(stage="API", message=str(exc), details={"traceback": traceback.format_exc()})
         return JSONResponse(
             status_code=500,
             content={
@@ -88,3 +80,15 @@ app.include_router(jobs.router)
 app.include_router(ml.router)
 app.include_router(evaluation.router)
 app.include_router(tasks.router)
+
+
+def _safe_log_error(*, stage: str, message: str, dataset_id: int | None = None, details=None) -> None:
+    db = SessionLocal()
+    try:
+        try:
+            log_error(db, stage, message, dataset_id=dataset_id, details=details)
+        except Exception:
+            # Never allow best-effort error logging to mask/replace the original request failure.
+            db.rollback()
+    finally:
+        db.close()

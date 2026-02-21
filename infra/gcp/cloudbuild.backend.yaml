@@ -1,0 +1,11 @@
+steps:
+- name: gcr.io/cloud-builders/docker
+  args:
+  - build
+  - -f
+  - backend/Dockerfile
+  - -t
+  - gcr.io/$PROJECT_ID/sg-route-opt-api:latest
+  - .
+images:
+- gcr.io/$PROJECT_ID/sg-route-opt-api:latest

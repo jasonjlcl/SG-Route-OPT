@@ -71,3 +71,40 @@ S2,1 Raffles Place,,1,5
     assert geocode.json()["success_count"] == 2
 
     assert queries == ["10 Bayfront Avenue", "1 Raffles Place"]
+
+
+def test_manual_pin_uses_reverse_geocode_when_address_missing(client, monkeypatch):
+    class DummyClient:
+        def reverse_geocode(self, lat: float, lon: float):
+            return {
+                "address": "1 Raffles Place Singapore",
+                "postal_code": "048616",
+                "source": "onemap",
+            }
+
+    monkeypatch.setattr("app.services.geocoding.get_onemap_client", lambda: DummyClient())
+
+    csv_content = """stop_ref,address,postal_code,demand,service_time_min
+S1,10 Bayfront Avenue,,1,5
+"""
+    upload = client.post(
+        "/api/v1/datasets/upload",
+        files={"file": ("stops.csv", BytesIO(csv_content.encode("utf-8")), "text/csv")},
+        data={"exclude_invalid": "true"},
+    )
+    assert upload.status_code == 200
+    dataset_id = upload.json()["dataset_id"]
+
+    stops = client.get(f"/api/v1/datasets/{dataset_id}/stops")
+    assert stops.status_code == 200
+    stop_id = stops.json()["items"][0]["id"]
+
+    manual = client.post(
+        f"/api/v1/stops/{stop_id}/geocode/manual",
+        json={"lat": 1.284, "lon": 103.851},
+    )
+    assert manual.status_code == 200
+    body = manual.json()
+    assert body["status"] == "MANUAL"
+    assert body["address"] == "1 Raffles Place Singapore"
+    assert body["postal_code"] == "048616"
