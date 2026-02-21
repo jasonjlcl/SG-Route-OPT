@@ -31,6 +31,9 @@ export function useWorkflowState() {
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);
+    // Reset view model before fetching to avoid showing stale workflow badges.
+    setDataset(null);
+    setPlan(null);
     try {
       let effectivePlanId = planId;
 
@@ -82,6 +85,24 @@ export function useWorkflowState() {
 
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const onPageShow = () => {
+      void refresh();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [refresh]);
 
   const steps: WorkflowStep[] = useMemo(() => {

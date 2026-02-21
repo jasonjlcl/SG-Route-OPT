@@ -1,4 +1,5 @@
-import { Outlet } from "react-router-dom";
+import { useEffect } from "react";
+import { Outlet, useLocation } from "react-router-dom";
 
 import { useWorkflowContext } from "./WorkflowContext";
 import { StepNav } from "./StepNav";
@@ -6,6 +7,11 @@ import { TopBar } from "./TopBar";
 
 export function AppShell() {
   const { datasetId, planId, dataset, steps, setDatasetId, refresh, isRefreshing } = useWorkflowContext();
+  const location = useLocation();
+
+  useEffect(() => {
+    void refresh();
+  }, [location.pathname, refresh]);
 
   return (
     <div className="min-h-screen">

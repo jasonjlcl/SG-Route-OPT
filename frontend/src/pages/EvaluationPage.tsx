@@ -13,8 +13,7 @@ import type { EvaluationPredictionMetrics, EvaluationRunResult } from "../types"
 
 export function EvaluationPage() {
   const { datasetId } = useWorkflowContext();
-  const [featureEnabled, setFeatureEnabled] = useState(false);
-  const [checkedFeature, setCheckedFeature] = useState(false);
+  const [featureState, setFeatureState] = useState<"checking" | "enabled" | "disabled" | "error">("checking");
   const [error, setError] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<EvaluationPredictionMetrics | null>(null);
   const [report, setReport] = useState<EvaluationRunResult | null>(null);
@@ -38,23 +37,28 @@ export function EvaluationPage() {
     }
   }, [datasetId]);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const health = await getHealth();
-        const enabled = Boolean(health.feature_eval_dashboard);
-        setFeatureEnabled(enabled);
-        if (enabled) {
-          const pred = await getEvaluationPrediction(Number(sampleLimit) || 5000);
-          setPrediction(pred);
-        }
-      } catch (err: any) {
-        setError(err?.response?.data?.message ?? "Failed to load evaluation status.");
-      } finally {
-        setCheckedFeature(true);
+  const loadFeatureGate = async () => {
+    setFeatureState("checking");
+    setError(null);
+    try {
+      const health = await getHealth();
+      const enabled = Boolean(health.feature_eval_dashboard);
+      if (!enabled) {
+        setFeatureState("disabled");
+        setPrediction(null);
+        return;
       }
-    };
-    void load();
+      const pred = await getEvaluationPrediction(Number(sampleLimit) || 5000);
+      setPrediction(pred);
+      setFeatureState("enabled");
+    } catch (err: any) {
+      setFeatureState("error");
+      setError(err?.response?.data?.message ?? "Failed to load evaluation status.");
+    }
+  };
+
+  useEffect(() => {
+    void loadFeatureGate();
   }, []);
 
   useEffect(() => {
@@ -115,11 +119,23 @@ export function EvaluationPage() {
     }
   };
 
-  if (!checkedFeature) {
+  if (featureState === "checking") {
     return <div className="text-sm text-muted-foreground">Loading evaluation dashboard...</div>;
   }
 
-  if (!featureEnabled) {
+  if (featureState === "error") {
+    return (
+      <ErrorState
+        title="Evaluation unavailable"
+        cause={error ?? "Failed to verify evaluation feature state."}
+        nextStep="Retry loading dashboard status. If this persists, verify API health and network."
+        onAction={() => void loadFeatureGate()}
+        actionLabel="Retry"
+      />
+    );
+  }
+
+  if (featureState === "disabled") {
     return (
       <EmptyState
         title="Evaluation dashboard disabled"
