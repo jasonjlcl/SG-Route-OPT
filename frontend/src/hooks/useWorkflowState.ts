@@ -73,7 +73,9 @@ export function useWorkflowState() {
   }, [refresh]);
 
   const steps: WorkflowStep[] = useMemo(() => {
-    if (datasetId <= 0) {
+    const hasDataset = Boolean(dataset && dataset.id > 0);
+
+    if (!hasDataset) {
       return [
         { key: "upload", label: "Upload", route: "/upload", status: "not_started" },
         { key: "validate", label: "Validate", route: "/validate", status: "not_started" },
@@ -83,7 +85,7 @@ export function useWorkflowState() {
       ];
     }
 
-    const uploadStatus: StepStatus = datasetId > 0 ? "complete" : "not_started";
+    const uploadStatus: StepStatus = "complete";
 
     const validationState = dataset?.validation_state ?? "NOT_STARTED";
     const geocodeState = dataset?.geocode_state ?? "NOT_STARTED";
@@ -123,7 +125,7 @@ export function useWorkflowState() {
             : "not_started";
 
     const viewedPlanId = Number(localStorage.getItem("results_viewed_plan_id") || "0");
-    const effectivePlanId = dataset?.latest_plan_id ?? planId;
+    const effectivePlanId = dataset?.latest_plan_id ?? 0;
     const hasView = effectivePlanId > 0 && viewedPlanId === effectivePlanId;
     const resultsStatus: StepStatus = effectivePlanId <= 0 ? "not_started" : hasView ? "complete" : "in_progress";
 
