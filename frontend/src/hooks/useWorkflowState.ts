@@ -73,11 +73,23 @@ export function useWorkflowState() {
   }, [refresh]);
 
   const steps: WorkflowStep[] = useMemo(() => {
+    if (datasetId <= 0) {
+      return [
+        { key: "upload", label: "Upload", route: "/upload", status: "not_started" },
+        { key: "validate", label: "Validate", route: "/validate", status: "not_started" },
+        { key: "geocode", label: "Geocode", route: "/geocoding", status: "not_started" },
+        { key: "optimize", label: "Optimize", route: "/optimization", status: "not_started" },
+        { key: "results", label: "Results", route: "/results", status: "not_started" },
+      ];
+    }
+
     const uploadStatus: StepStatus = datasetId > 0 ? "complete" : "not_started";
 
     const validationState = dataset?.validation_state ?? "NOT_STARTED";
     const geocodeState = dataset?.geocode_state ?? "NOT_STARTED";
     const optimizeState = dataset?.optimize_state ?? "NOT_STARTED";
+    const isGeocodingRunning = dataset?.status === "GEOCODING_RUNNING";
+    const isOptimizeRunning = dataset?.status === "OPTIMIZATION_RUNNING" || optimizeState === "RUNNING";
 
     const validateStatus: StepStatus =
       validationState === "VALID"
@@ -85,7 +97,7 @@ export function useWorkflowState() {
         : validationState === "BLOCKED"
           ? "attention"
           : validationState === "PARTIAL"
-            ? "in_progress"
+            ? "attention"
           : "not_started";
 
     const geocodeStatus: StepStatus =
@@ -94,7 +106,9 @@ export function useWorkflowState() {
         : geocodeState === "NEEDS_ATTENTION"
           ? "attention"
           : geocodeState === "IN_PROGRESS"
-            ? "in_progress"
+            ? isGeocodingRunning
+              ? "in_progress"
+              : "not_started"
             : "not_started";
 
     const optimizeStatus: StepStatus =
@@ -103,7 +117,9 @@ export function useWorkflowState() {
         : optimizeState === "NEEDS_ATTENTION"
           ? "attention"
           : optimizeState === "RUNNING"
-            ? "in_progress"
+            ? isOptimizeRunning
+              ? "in_progress"
+              : "not_started"
             : "not_started";
 
     const viewedPlanId = Number(localStorage.getItem("results_viewed_plan_id") || "0");
