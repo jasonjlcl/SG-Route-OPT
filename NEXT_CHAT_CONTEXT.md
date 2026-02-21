@@ -1,180 +1,88 @@
 # Next Chat Context (SG-Route-OPT)
 
-## Date + Purpose
-- Context timestamp: February 17, 2026 (local)
-- Purpose: handoff after committing Google traffic-aware reference integration, ML uplift pipeline, evaluation harness/UI, and docs updates.
+## Timestamp
+- Generated: February 20, 2026
+- Purpose: handoff after frontend status fixes + new OneMap->Vertex ETA data pipeline scaffolding
 
-## Repository Snapshot
-- Repo path: `c:\Users\User\OneDrive\Documents\FYP Documents\SG-Route-OPT`
-- Branch: `main` (tracking `origin/main`)
-- Remote: `origin -> https://github.com/jasonjlcl/SG-Route-OPT.git`
+## Repo Snapshot
+- Repo: `c:\Users\User\OneDrive\Documents\FYP Documents\SG-Route-OPT`
+- Branch: `main`
+- HEAD: `39a47a0`
+- Remote: `https://github.com/jasonjlcl/SG-Route-OPT.git`
 
-### Latest Commits (Most Recent First)
-- `fd41dde` — docs: update env setup and demo instructions for uplift/evaluation
-- `510e4a9` — feat(frontend): add evaluation dashboard and ML uplift ETA indicators
-- `04d9ce1` — feat(backend): add Google Routes provider, ML uplift pipeline, and evaluation jobs
+## Recently Pushed Commits
+1. `39a47a0` - `fix(frontend): normalize optimize job result and tighten workflow completion states`
+   - Fixes incorrect "Infeasible" render when optimize pipeline actually succeeded.
+   - Tightens workflow step completion behavior.
+2. `7b4ebbc` - `docs: add ML training guide runbook`
+   - Added `docs/ML_TRAINING_GUIDE.md`.
 
-## Current Working Tree
-Modified files (intentionally left uncommitted):
-- `NEXT_CHAT_CONTEXT.md` (this handoff update)
-- `frontend/tsconfig.tsbuildinfo` (generated; do not commit)
-- `frontend/vite.config.ts` (existing line-ending/worktree noise; avoid functional changes)
+## What Was Fixed In Frontend
 
-## Implemented in This Session
+### 1) Optimize run summary false infeasible bug
+- Root cause: optimization page read top-level `job.result_ref` directly, but pipeline stores final optimize payload under `result_ref.optimize`.
+- Effect: `feasible` was undefined and rendered as `Infeasible`.
+- Fix:
+  - Added normalize function for job result payload.
+  - Read warnings from normalized payload too.
+- File:
+  - `frontend/src/pages/OptimizationPage.tsx`
 
-### 1) Backend: Google Routes Provider (Reference Traffic)
-- Added provider module with strict field masks and structured fallback errors:
-  - `backend/app/providers/google_routes.py`
-- Supports:
-  - `compute_routes(...)` with leg `duration` + `staticDuration` + `distanceMeters`
-  - `compute_route_matrix(...)` with guardrails
-  - token-bucket rate limiting, retry/backoff, TTL leg cache
-- Added compatibility bridge for existing optimization code:
-  - `backend/app/services/traffic_provider_google.py`
+### 2) Workflow ticks only on true completion
+- Step status mapping made stricter:
+  - `validate`: complete only when `VALID`
+  - `geocode`: complete only when `COMPLETE`
+  - `optimize`: complete only when `COMPLETE`
+- Follow-up tweak requested by user:
+  - `validation_state=PARTIAL` now shows `in_progress` (not `attention`).
+- File:
+  - `frontend/src/hooks/useWorkflowState.ts`
 
-### 2) Backend: Feature Flags + Env Alignment
-Added/updated settings for required flags and aliases:
-- `FEATURE_GOOGLE_TRAFFIC`
-- `GOOGLE_ROUTES_API_KEY` (preferred, server-side)
-- `GOOGLE_MAPS_API_KEY` (legacy alias)
-- `GOOGLE_ROUTING_PREFERENCE`
-- `GOOGLE_MATRIX_MAX_ELEMENTS`
-- `GOOGLE_CACHE_TTL_SECONDS`
-- `GOOGLE_TIMEOUT_SECONDS`
-- `GOOGLE_RATE_LIMIT_QPS`
-- `FEATURE_ML_UPLIFT`
-- `FEATURE_EVAL_DASHBOARD`
+## New Uncommitted Work Added (Not Pushed Yet)
 
-Files:
-- `backend/app/utils/settings.py`
-- `.sample.env`
+### OneMap -> Vertex ETA pipeline scaffold
+Created new tooling under:
+- `tools/onemap_vertex_eta/onemap_collect_train.py`
+- `tools/onemap_vertex_eta/requirements.txt`
+- `tools/onemap_vertex_eta/README.md`
 
-### 3) Backend: ML Uplift Pipeline
-Added new uplift package and scripts:
-- `backend/app/ml_uplift/`:
-  - `schema.py`, `features.py`, `storage.py`, `model.py`
-  - `collect_samples.py`, `train.py`
-- module wrappers for execution:
-  - `python -m ml_uplift.collect_samples`
-  - `python -m ml_uplift.train`
-- entrypoint wrappers:
-  - `backend/ml_uplift/collect_samples.py`
-  - `backend/ml_uplift/train.py`
-- data path scaffold:
-  - `backend/data/ml_uplift/samples.csv`
-- service integration:
-  - `backend/app/services/ml_uplift.py`
+Implemented CLI commands:
+- `build-address-pool`
+- `collect --target_rows 20000 --sleep_ms 200`
+- `train`
+- `collect-and-train`
 
-### 4) Backend: Optimizer + ETA Integration
-- Integrated uplift factor inference into matrix building behind `FEATURE_ML_UPLIFT`.
-- Added bounded congestion factors and matrix strategy metadata.
-- Post-optimization ETA refinement now uses Google route legs (`duration` and `staticDuration`) where available.
-- Added sample logging from refined Google legs for uplift training rows.
-- Maintains fallback behavior when Google is unavailable.
+Core behavior implemented:
+- data.gov.sg poll-download fetch for 4 specified dataset IDs
+- address point extraction from GeoJSON point geometry
+- SG bounds filter + dedupe by `(dataset_id, lat6, lon6)`
+- `addresses.csv` generation with `point_id, lat, lon, dataset_source`
+- OD sampling with required distance mix (40/40/20 for 1-3km / 3-8km / 8-20km)
+- OneMap routing labels with retries/backoff/rate sleep
+- BigQuery insert into `eta_sg.onemap_eta_training` partitioned by `timestamp_iso`
+- Vertex AutoML Tabular Regression train path (`target=actual_duration_s`)
+- Open Data Licence attribution included in README + output metadata rows
 
-Main file:
-- `backend/app/services/optimization.py`
+Sanity checks run:
+- `.venv\Scripts\python.exe -m py_compile tools/onemap_vertex_eta/onemap_collect_train.py` -> pass
+- `.venv\Scripts\python.exe tools/onemap_vertex_eta/onemap_collect_train.py --help` -> pass
 
-### 5) Backend: Evaluation Harness + API
-Added prediction-level and planning-level proof module:
-- `backend/app/services/ml_uplift_evaluation.py`
-  - prediction metrics (baseline static vs ML uplift against Google reference samples)
-  - planning KPI simulation (late stops, on-time rate, overtime, makespan)
-  - report ZIP generation (JSON + CSV)
+## Current Working Tree Notes
+There are many unrelated local modifications in backend/frontend/sample_data/infra from prior work.
+Do NOT mass-revert.
+Isolate commits by concern.
 
-Added API and job wiring:
-- `backend/app/api/evaluation.py`
-- `backend/app/services/job_tasks.py` (job type `ML_UPLIFT_EVAL`)
-- `backend/app/main.py` and `backend/app/api/__init__.py` router wiring
+Notable uncommitted new paths:
+- `tools/` (new pipeline files)
+- `backend/app/tests/test_routing_cache.py`
+- `infra/gcp/cloudbuild.backend.yaml`
+- multiple `sample_data/*.csv`
 
-### 6) Backend: Existing API/Schema/Model Wiring
-Extended prior live-traffic and ETA-source wiring:
-- `use_live_traffic` request plumbing in optimize/resequence paths
-- plan metadata fields (`eta_source`, `traffic_timestamp_iso`, `live_traffic_requested`)
-- schema propagation of ETA metadata and warnings
-- health flags now include:
-  - `feature_google_traffic`
-  - `feature_ml_uplift`
-  - `feature_eval_dashboard`
-
-Files include:
-- `backend/app/api/datasets.py`
-- `backend/app/api/jobs.py`
-- `backend/app/api/plans.py`
-- `backend/app/models/entities.py`
-- `backend/app/schemas/api.py`
-- `backend/app/services/job_pipeline.py`
-- `backend/app/utils/db.py`
-- `backend/app/api/health.py`
-
-### 7) Frontend: Evaluation Dashboard + ETA Labels
-Added new route/page:
-- `/evaluation`
-- `frontend/src/pages/EvaluationPage.tsx`
-
-Updated frontend API/types and nav:
-- `frontend/src/api.ts`
-- `frontend/src/types.ts`
-- `frontend/src/App.tsx`
-- `frontend/src/components/layout/TopBar.tsx`
-
-Updated optimization/results UX labels:
-- `frontend/src/pages/OptimizationPage.tsx`
-- `frontend/src/pages/ResultsPage.tsx`
-
-### 8) Tests Added/Updated
-- `backend/app/tests/test_google_traffic.py`
-- `backend/app/tests/test_ml_uplift_and_evaluation.py`
-- `backend/app/tests/test_health.py`
-
-## Validation Status
-
-### Backend tests run
-1. `\.\.venv-backend\Scripts\python.exe -m pytest backend/app/tests/test_google_traffic.py backend/app/tests/test_resequence.py backend/app/tests/test_jobs.py backend/app/tests/test_health.py backend/app/tests/test_ml_uplift_and_evaluation.py`
-- Result: `11 passed`
-
-2. `\.\.venv-backend\Scripts\python.exe -m pytest backend/app/tests/test_ml_evaluation_and_ab.py`
-- Result: `2 passed`
-
-### Frontend build
-- `cd frontend && npm run build`
-- Result: success (existing chunk-size warning remains non-blocking)
-
-## Deployment/Runtime Env Vars (Key Set)
-Set in Cloud Run service env/secrets:
-- `FEATURE_GOOGLE_TRAFFIC`
-- `GOOGLE_ROUTES_API_KEY` (preferred secret)
-- `GOOGLE_ROUTING_PREFERENCE`
-- `GOOGLE_MATRIX_MAX_ELEMENTS`
-- `GOOGLE_CACHE_TTL_SECONDS`
-- `GOOGLE_TIMEOUT_SECONDS`
-- `GOOGLE_RATE_LIMIT_QPS`
-- `FEATURE_ML_UPLIFT`
-- `FEATURE_EVAL_DASHBOARD`
-
-Legacy aliases still recognized:
-- `GOOGLE_MAPS_API_KEY`
-- `GOOGLE_TRAFFIC_MODE`
-- `GOOGLE_MAX_ELEMENTS_PER_JOB`
-
-## Suggested Next Chat Objectives
-1. Push local commits to remote (if not already pushed) and verify GitHub branch state.
-2. Deploy backend/frontend with new env vars enabled in Cloud Run.
-3. Run interview demo flow:
-   - optimize baseline vs uplift
-   - show `/evaluation` KPI deltas + report ZIP
-   - show ETA source badges in `/results`
-4. Verify Google quota/auth behavior and fallback telemetry in production.
-5. Configure custom domain + managed SSL (still pending from prior context).
-
-## Quick Commands
-- Run targeted backend tests:
-  - `\.\.venv-backend\Scripts\python.exe -m pytest backend/app/tests/test_google_traffic.py backend/app/tests/test_resequence.py backend/app/tests/test_jobs.py backend/app/tests/test_health.py backend/app/tests/test_ml_uplift_and_evaluation.py`
-- Run frontend build:
-  - `cd frontend && npm run build`
-- Backend dev server:
-  - `cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
-- Frontend dev server:
-  - `cd frontend && npm run dev`
-- Show latest commits:
-  - `git log --oneline -n 5`
+## Suggested Next Actions
+1. Decide whether to commit/push the new `tools/onemap_vertex_eta/*` pipeline now.
+2. If yes, do a dedicated commit for only those files.
+3. Optionally run a dry command (no GCP writes) first:
+   - `build-address-pool`
+4. Then run full collect/train with env vars set:
+   - `ONEMAP_EMAIL`, `ONEMAP_PASSWORD`, `GCP_PROJECT_ID`, optional `GCP_REGION`, `BQ_DATASET`.
+5. Keep unrelated dirty files out of this commit.

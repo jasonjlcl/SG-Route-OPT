@@ -1,0 +1,15 @@
+{
+  "trained_at": "2026-02-21T02:50:39.497663+08:00",
+  "project_id": "gen-lang-client-0328386378",
+  "region": "asia-southeast1",
+  "bq_source": "bq://gen-lang-client-0328386378.eta_sg.onemap_eta_training",
+  "target_column": "actual_duration_s",
+  "vertex_dataset_display_name": "sg-onemap-eta-tabular-dataset",
+  "vertex_dataset_action": "created",
+  "vertex_dataset_resource": "projects/858316205970/locations/asia-southeast1/datasets/6626123261908353024",
+  "training_job_display_name": "sg-onemap-eta-automl-regression",
+  "training_job_resource": "projects/858316205970/locations/asia-southeast1/trainingPipelines/6935199553888976896",
+  "model_display_name": "sg-onemap-eta-model-20260221002715",
+  "model_resource": "projects/858316205970/locations/asia-southeast1/models/2883979417237848064",
+  "budget_milli_node_hours": 1000
+}

@@ -1,0 +1,17 @@
+{
+  "run_id": "run20260221000458",
+  "generated_at": "2026-02-21T00:27:15.722683+08:00",
+  "target_rows": 2000,
+  "sample_rows": 2600,
+  "distance_mix_counts": {
+    "1_3km": 1040,
+    "3_8km": 1040,
+    "8_20km": 520
+  },
+  "od_pairs_csv": "backend\\data\\onemap_vertex_eta\\od_pairs.csv",
+  "bigquery_table": "gen-lang-client-0328386378.eta_sg.onemap_eta_training",
+  "attribution": "Contains information from data.gov.sg, licensed under the Singapore Open Data Licence.",
+  "inserted_rows": 2600,
+  "failed_rows": 0,
+  "labels_csv": "backend\\data\\onemap_vertex_eta\\onemap_labels.csv"
+}

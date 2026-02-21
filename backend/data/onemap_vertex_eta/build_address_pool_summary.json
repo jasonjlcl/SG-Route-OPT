@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-02-20T23:17:47.418923+08:00",
+  "address_count": 2038,
+  "datasets": [
+    {
+      "dataset_id": "d_5d668e3f544335f8028f546827b773b4",
+      "dataset_source": "Child Care Services",
+      "accepted_points": 1738,
+      "dataset_url": "https://data.gov.sg/datasets/d_5d668e3f544335f8028f546827b773b4/view"
+    },
+    {
+      "dataset_id": "d_4a086da0a5553be1d89383cd90d07ecd",
+      "dataset_source": "Hawker Centres",
+      "accepted_points": 129,
+      "dataset_url": "https://data.gov.sg/datasets/d_4a086da0a5553be1d89383cd90d07ecd/view"
+    },
+    {
+      "dataset_id": "d_9de02d3fb33d96da1855f4fbef549a0f",
+      "dataset_source": "Community Club / PAssion WaVe Outlet",
+      "accepted_points": 126,
+      "dataset_url": "https://data.gov.sg/datasets/d_9de02d3fb33d96da1855f4fbef549a0f/view"
+    },
+    {
+      "dataset_id": "d_9b87bab59d036a60fad2a91530e10773",
+      "dataset_source": "SportSG Sport Facilities",
+      "accepted_points": 45,
+      "dataset_url": "https://data.gov.sg/datasets/d_9b87bab59d036a60fad2a91530e10773/view"
+    }
+  ],
+  "attribution": "Contains information from data.gov.sg, licensed under the Singapore Open Data Licence.",
+  "outputs": {
+    "addresses_csv": "backend\\data\\onemap_vertex_eta\\addresses.csv",
+    "metadata_csv": "backend\\data\\onemap_vertex_eta\\addresses_metadata.csv"
+  }
+}
