@@ -1,0 +1,11 @@
+stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end,phone,contact_name
+P001,10 Bayfront Avenue,,1,6,09:00,12:00,+65 8123 4567,Valid SG
+P002,1 Raffles Place,,1,6,09:30,13:00,81234568,No Prefix
+P003,3 Temasek Boulevard,,1,6,10:00,14:00,+6581234569,No Space
+P004,2 Orchard Turn,,1,6,10:30,15:00,+65-8123-4570,Dashes
+P005,1 HarbourFront Walk,,1,6,11:00,16:00,+65 8123 45,Too Short
+P006,80 Marine Parade Road,,1,6,11:30,16:30,+65 8123 45678,Too Long
+P007,18 Marina Gardens Drive,,1,6,12:00,17:00,+65 81AB 4567,Alpha Char
+P008,1 Changi Business Park Crescent,,1,6,12:30,17:30,,Blank
+P009,50 Nanyang Avenue,,1,6,13:00,18:00,N/A,Literal NA
+P010,21 Jurong Gateway Road,,1,6,09:00,18:00,+44 7700 900123,Non SG

@@ -1,0 +1,16 @@
+stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end,phone,contact_name
+C001,10 Bayfront Avenue,,8,8,09:00,12:00,+65 8111 0001,Cap Team 1
+C002,1 Raffles Place,,7,8,09:00,12:00,+65 8111 0002,Cap Team 2
+C003,3 Temasek Boulevard,,9,8,09:30,13:00,+65 8111 0003,Cap Team 3
+C004,2 Orchard Turn,,6,7,10:00,14:00,+65 8111 0004,Cap Team 4
+C005,1 HarbourFront Walk,,8,8,10:00,15:00,+65 8111 0005,Cap Team 5
+C006,80 Marine Parade Road,,7,7,10:30,16:00,+65 8111 0006,Cap Team 6
+C007,18 Marina Gardens Drive,,6,6,09:00,13:30,+65 8111 0007,Cap Team 7
+C008,1 Changi Business Park Crescent,,8,8,11:00,17:00,+65 8111 0008,Cap Team 8
+C009,50 Nanyang Avenue,,9,8,11:00,17:30,+65 8111 0009,Cap Team 9
+C010,21 Jurong Gateway Road,,10,9,12:00,18:00,+65 8111 0010,Cap Team 10
+C011,1 Woodlands Square,,7,7,11:30,18:00,+65 8111 0011,Cap Team 11
+C012,1 Vista Exchange Green,,6,6,10:30,16:30,+65 8111 0012,Cap Team 12
+C013,60 Paya Lebar Road,,8,8,09:30,15:00,+65 8111 0013,Cap Team 13
+C014,90 Bras Basah Road,,7,7,10:00,16:00,+65 8111 0014,Cap Team 14
+C015,1 Selegie Road,,8,8,10:30,17:00,+65 8111 0015,Cap Team 15

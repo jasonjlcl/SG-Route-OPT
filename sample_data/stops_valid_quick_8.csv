@@ -1,0 +1,9 @@
+stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end,phone,contact_name
+Q001,10 Bayfront Avenue,,1,6,09:00,12:00,+65 8123 1111,Jason Lim
+Q002,1 Raffles Place,,1,7,09:30,13:30,+65 8123 2222,Ops Desk
+Q003,2 Orchard Turn,,1,5,10:00,15:30,+65 8123 3333,Maya Tan
+Q004,3 Temasek Boulevard,,2,8,10:30,16:30,+65 8123 4444,Ravi Kumar
+Q005,1 HarbourFront Walk,,1,6,09:00,14:00,+65 8123 5555,Dispatch
+Q006,80 Marine Parade Road,,1,7,11:00,17:30,+65 8123 6666,Warehouse
+Q007,21 Jurong Gateway Road,,2,9,12:00,18:00,+65 8123 7777,Team Lead
+Q008,1 Woodlands Square,,1,7,11:30,18:00,+65 8123 8888,Alex Lee

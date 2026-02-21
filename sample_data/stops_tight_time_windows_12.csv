@@ -1,0 +1,13 @@
+stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end,phone,contact_name
+T001,10 Bayfront Avenue,,1,8,08:30,09:30,+65 9000 1001,TW Team 1
+T002,1 Raffles Place,,1,8,08:45,09:45,+65 9000 1002,TW Team 2
+T003,3 Temasek Boulevard,,1,8,09:00,10:00,+65 9000 1003,TW Team 3
+T004,2 Orchard Turn,,1,8,09:15,10:15,+65 9000 1004,TW Team 4
+T005,1 HarbourFront Walk,,1,8,09:30,10:30,+65 9000 1005,TW Team 5
+T006,80 Marine Parade Road,,1,8,09:45,10:45,+65 9000 1006,TW Team 6
+T007,18 Marina Gardens Drive,,1,8,10:00,11:00,+65 9000 1007,TW Team 7
+T008,1 Changi Business Park Crescent,,1,8,10:15,11:15,+65 9000 1008,TW Team 8
+T009,50 Nanyang Avenue,,1,8,10:30,11:30,+65 9000 1009,TW Team 9
+T010,21 Jurong Gateway Road,,1,8,10:45,11:45,+65 9000 1010,TW Team 10
+T011,1 Woodlands Square,,1,8,11:00,12:00,+65 9000 1011,TW Team 11
+T012,1 Vista Exchange Green,,1,8,11:15,12:15,+65 9000 1012,TW Team 12
