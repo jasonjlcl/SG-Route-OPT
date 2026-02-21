@@ -46,7 +46,19 @@ export function useWorkflowState() {
               localStorage.setItem("plan_id", String(latestPlanId));
             }
           }
-        } catch {
+        } catch (error: any) {
+          const status = Number(error?.response?.status || 0);
+          if (status === 404) {
+            // Auto-heal stale local workflow pointers when dataset was deleted.
+            setDatasetIdState(0);
+            setPlanIdState(0);
+            localStorage.removeItem("dataset_id");
+            localStorage.removeItem("plan_id");
+            localStorage.removeItem("results_viewed_plan_id");
+            localStorage.removeItem("geocode_job_id");
+            localStorage.removeItem("optimize_job_id");
+            effectivePlanId = 0;
+          }
           setDataset(null);
         }
       } else {
