@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from app.services.ml_features import FEATURE_COLUMNS
 from app.services.storage import upload_bytes
 from app.utils.settings import get_settings
 
@@ -107,12 +108,34 @@ def _coerce_prediction_value(value: Any) -> float | None:
     return None
 
 
+def _serialize_feature_row(row: dict[str, Any]) -> list[float]:
+    values: list[float] = []
+    for column in FEATURE_COLUMNS:
+        raw = row.get(column)
+        try:
+            values.append(float(raw))
+        except Exception:  # noqa: BLE001
+            values.append(0.0)
+    return values
+
+
 def _jsonl_prediction_blobs(client: Any, *, bucket_name: str, prefix: str) -> list[Any]:
     blobs = sorted(client.list_blobs(bucket_name, prefix=prefix), key=lambda item: item.name)
-    prediction_files = [blob for blob in blobs if blob.name.endswith(".jsonl") and "prediction" in blob.name.lower()]
+    prediction_files = [blob for blob in blobs if "prediction.results" in blob.name.lower()]
     if prediction_files:
         return prediction_files
-    return [blob for blob in blobs if blob.name.endswith(".jsonl")]
+    prediction_files = [
+        blob
+        for blob in blobs
+        if blob.name.endswith(".jsonl") and "error" not in blob.name.lower()
+    ]
+    if prediction_files:
+        return prediction_files
+    return [
+        blob
+        for blob in blobs
+        if "prediction" in blob.name.lower() and "error" not in blob.name.lower()
+    ]
 
 
 def vertex_enabled() -> bool:
@@ -175,11 +198,10 @@ def run_vertex_batch_prediction(
     if not bucket_name:
         return VertexBatchPredictionResult(predictions=None, reason="missing_bucket")
 
-    # Vertex batch prediction will ignore unknown fields when using sklearn prebuilt
-    # only if they are part of the serialized feature schema; row_id is used for join-back.
+    # For sklearn prebuilt prediction, instances must be numeric arrays aligned with training schema.
     input_lines = []
-    for idx, row in enumerate(rows):
-        line = {"row_id": idx, **row}
+    for row in rows:
+        line = _serialize_feature_row(row)
         input_lines.append(json.dumps(line))
     input_bytes = ("\n".join(input_lines) + "\n").encode("utf-8")
 
