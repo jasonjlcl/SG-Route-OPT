@@ -108,6 +108,10 @@ def test_vertex_helpers_parse_nested_prediction_shapes():
     assert vertex_ai._coerce_prediction_value([[123.4]]) == 123.4
     assert vertex_ai._coerce_prediction_value({"value": [["88.5"]]}) == 88.5
     assert vertex_ai._split_gcs_uri("gs://route_app/path/to/output/") == ("route_app", "path/to/output")
+    assert vertex_ai._extract_prediction_record({"row_id": "3", "prediction": "77.7"}) == (3, 77.7)
+    assert vertex_ai._extract_prediction_record({"instance": {"row_id": "4"}, "prediction": 12}) == (4, 12.0)
+    assert vertex_ai._extract_prediction_record({"instance": [1, 2, 3], "prediction": 99.0}) == (None, 99.0)
+    assert vertex_ai._extract_prediction_record([123.45]) == (None, 123.45)
 
 
 def test_vertex_serialize_feature_row_aligns_to_schema():

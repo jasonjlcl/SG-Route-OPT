@@ -108,6 +108,26 @@ def _coerce_prediction_value(value: Any) -> float | None:
     return None
 
 
+def _extract_prediction_record(payload: Any) -> tuple[int | None, float | None]:
+    row_id: int | None = None
+    pred_raw: Any = payload
+
+    if isinstance(payload, dict):
+        row_id = _coerce_row_id(payload.get("row_id"))
+        if row_id is None:
+            instance = payload.get("instance")
+            if isinstance(instance, dict):
+                row_id = _coerce_row_id(instance.get("row_id"))
+
+        pred_raw = payload.get("prediction")
+        if pred_raw is None:
+            pred_raw = payload.get("predictions")
+        if pred_raw is None:
+            pred_raw = payload.get("score")
+
+    return row_id, _coerce_prediction_value(pred_raw)
+
+
 def _serialize_feature_row(row: dict[str, Any]) -> list[float]:
     values: list[float] = []
     for column in FEATURE_COLUMNS:
@@ -337,10 +357,7 @@ def run_vertex_batch_prediction(
                 if not line.strip():
                     continue
                 payload = json.loads(line)
-                row_id_raw = payload.get("instance", {}).get("row_id", payload.get("row_id"))
-                row_id = _coerce_row_id(row_id_raw)
-                pred_raw = payload.get("prediction", payload.get("predictions"))
-                value = _coerce_prediction_value(pred_raw)
+                row_id, value = _extract_prediction_record(payload)
 
                 if value is not None and row_id is None:
                     while next_unkeyed_row_id in predictions and next_unkeyed_row_id < len(rows):
