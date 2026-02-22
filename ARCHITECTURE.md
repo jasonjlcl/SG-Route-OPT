@@ -79,7 +79,7 @@ sequenceDiagram
     API->>API: Build matrix + local ML baseline
     API->>Vertex: Optional batch override (FEATURE_VERTEX_BATCH_OVERRIDE=true)
     Vertex-->>API: Predicted durations or timeout/failure
-    API->>API: Apply Vertex override when available; otherwise keep local baseline
+    API->>API: Apply Vertex override when available and keep local baseline on fallback
     API->>API: Solve VRPTW (OR-Tools)
     API->>DB: Persist plan/routes/route_stops + export refs
     API-->>Planner: Poll/stream job status -> SUCCEEDED/FAILED
