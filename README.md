@@ -37,7 +37,7 @@ Design system files:
 
 - Backend: Python 3.11, FastAPI, Pydantic, SQLAlchemy, Uvicorn
 - Optimizer: OR-Tools (VRPTW + optional capacity)
-- ML: scikit-learn baseline (pinned to 1.5.x for Vertex prebuilt sklearn serving compatibility), fallback heuristic when model missing
+- ML: scikit-learn baseline (pinned to 1.5.x with numpy 1.26.x for Vertex prebuilt sklearn serving compatibility), fallback heuristic when model missing
 - DB: SQLite for local dev; Postgres (`DATABASE_URL`) for cloud/production
 - Cache/Queue: Redis + RQ for local async workers; Cloud Tasks for cloud async jobs (geocode/optimize/export/ML)
 - Static map rendering: Google Static Maps API (preferred) with Playwright/fallback renderer when key is absent
