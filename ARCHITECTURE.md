@@ -173,7 +173,9 @@ Implemented:
 - Google traffic departure timestamp is clamped to a near-future value for API compatibility.
 - Google request failures capture request/cause/DNS diagnostics in logs.
 - Vertex batch override in `BUILD_MATRIX` is guarded by explicit feature flag and bounded timeouts/output-wait windows.
+- Vertex batch output parsing now handles Vertex `prediction.results-*` files, array-style `instance` payloads, and `outputUriPrefix` fallback when `outputInfo.gcsOutputDirectory` lags.
 - Async optimize job payload now captures Vertex batch diagnostics (`vertex_batch_used`, `reason`, optional `job_name`/`state`) when override is unavailable.
+- Production async optimize smoke now confirms Vertex path success (`vertex_batch_used=true`) on Cloud Run revision `sg-route-opt-api-00057-bm7` (job `job_4862727f186b46b59e43eb293f0973c7`, Vertex job `624073179198914560`).
 - Pipeline step leases support stale-lock reclaim for Cloud Tasks redelivery safety.
 - Slow optimize and retry/failure conditions are surfaced through Phase 7 log markers for alerting.
 

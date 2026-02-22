@@ -358,7 +358,7 @@ curl -sS https://api.sgroute.com/api/v1/ml/models
 
 Expected for current rollout:
 
-- `active_model_version=v20260222075015196509`
+- `active_model_version` is non-empty and not `fallback_v1` (as of February 22, 2026: `v20260222104531868779`)
 - `feature_vertex_ai=true`
 - `feature_vertex_batch_override=true|false` (operator-controlled batch override gate for async matrix build)
 
@@ -374,6 +374,7 @@ Interpretation:
 - `eta_source=onemap` and `model_version=fallback_v1` -> fallback path active; investigate ML artifact loading / Vertex batch prediction path.
 - For async optimize jobs, inspect `result_ref.vertex`:
   - `vertex_batch_used=true` means Vertex batch override was applied in `BUILD_MATRIX`.
+  - On success, `reason` may be omitted/null while `job_name` and `state` are still returned.
   - `vertex_batch_used=false` with `reason` (for example `batch_override_disabled`, `job_timeout`, `output_not_ready`, `row_mismatch`) explains why local baseline was kept.
 
 ## Operations Notes
