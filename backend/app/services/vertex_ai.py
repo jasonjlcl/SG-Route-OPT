@@ -171,6 +171,27 @@ def _read_prediction_outputs(
     return ordered, "success", len(predictions)
 
 
+def _resolve_output_location(batch_info: Any) -> tuple[str | None, tuple[str, str] | None]:
+    candidates: list[str] = []
+    try:
+        output_dir = str(batch_info.output_info.gcs_output_directory or "").strip()
+        if output_dir:
+            candidates.append(output_dir)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        output_prefix = str(batch_info.output_config.gcs_destination.output_uri_prefix or "").strip()
+        if output_prefix:
+            candidates.append(output_prefix)
+    except Exception:  # noqa: BLE001
+        pass
+    for uri in candidates:
+        parsed = _split_gcs_uri(uri)
+        if parsed is not None:
+            return uri, parsed
+    return None, None
+
+
 def _serialize_feature_row(row: dict[str, Any]) -> list[float]:
     values: list[float] = []
     for column in FEATURE_COLUMNS:
@@ -333,8 +354,7 @@ def run_vertex_batch_prediction(
 
         if batch_info is None or _job_state_name(batch_info.state) != "JOB_STATE_SUCCEEDED":
             if batch_info is not None:
-                output_directory = str(batch_info.output_info.gcs_output_directory or "").strip()
-                output_target = _split_gcs_uri(output_directory)
+                output_directory, output_target = _resolve_output_location(batch_info)
                 if output_target is not None:
                     output_bucket, output_prefix_path = output_target
                     client = storage.Client(project=settings.gcp_project_id)
@@ -382,25 +402,14 @@ def run_vertex_batch_prediction(
                 state=state_name,
             )
 
-        output_directory = str(batch_info.output_info.gcs_output_directory or "").strip()
-        if not output_directory:
+        output_directory, output_target = _resolve_output_location(batch_info)
+        if output_target is None or not output_directory:
             LOGGER.warning("Vertex batch prediction missing output directory: job=%s", job_name)
             return VertexBatchPredictionResult(
                 predictions=None,
                 reason="missing_output_directory",
                 job_name=job_name,
                 state="JOB_STATE_SUCCEEDED",
-            )
-
-        output_target = _split_gcs_uri(output_directory)
-        if output_target is None:
-            LOGGER.warning("Vertex batch prediction output directory format invalid: job=%s value=%s", job_name, output_directory)
-            return VertexBatchPredictionResult(
-                predictions=None,
-                reason="invalid_output_directory",
-                job_name=job_name,
-                state="JOB_STATE_SUCCEEDED",
-                output_directory=output_directory,
             )
 
         output_bucket, output_prefix_path = output_target

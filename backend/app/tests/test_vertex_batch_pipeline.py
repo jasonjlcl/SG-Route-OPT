@@ -177,3 +177,17 @@ def test_vertex_read_prediction_outputs_handles_instance_arrays():
     assert reason == "success"
     assert parsed_count == 2
     assert predictions == [111.5, 222.5]
+
+
+def test_vertex_resolve_output_location_uses_output_prefix_fallback():
+    batch_info = SimpleNamespace(
+        output_info=SimpleNamespace(gcs_output_directory=""),
+        output_config=SimpleNamespace(
+            gcs_destination=SimpleNamespace(output_uri_prefix="gs://route_app/vertex/batch_outputs/job-1")
+        ),
+    )
+
+    output_uri, output_target = vertex_ai._resolve_output_location(batch_info)
+
+    assert output_uri == "gs://route_app/vertex/batch_outputs/job-1"
+    assert output_target == ("route_app", "vertex/batch_outputs/job-1")
