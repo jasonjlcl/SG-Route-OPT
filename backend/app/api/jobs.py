@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.schemas.api import JobAcceptedResponse, OptimizeJobRequest
 from app.services.job_pipeline import create_optimize_pipeline_job
 from app.services.jobs import get_job_or_404, get_steps_state, parse_result_ref
+from app.services.scale_guardrails import validate_optimize_request_scale
 from app.utils.errors import AppError
 from app.utils.db import SessionLocal, get_db
 
@@ -38,6 +39,8 @@ def _job_payload(job) -> dict:
 
 @router.post("/optimize")
 def start_optimize_job(payload: OptimizeJobRequest, db: Session = Depends(get_db)) -> dict:
+    validate_optimize_request_scale(db, dataset_id=payload.dataset_id)
+
     job = create_optimize_pipeline_job(
         db,
         dataset_id=payload.dataset_id,

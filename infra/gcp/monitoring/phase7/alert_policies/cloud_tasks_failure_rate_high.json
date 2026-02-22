@@ -1,0 +1,42 @@
+{
+  "displayName": "sg-route-opt - Cloud Tasks failure attempt rate high",
+  "documentation": {
+    "content": "Cloud Tasks non-OK response attempt rate is elevated. Check task handler availability, auth, and downstream dependencies.",
+    "mimeType": "text/markdown"
+  },
+  "userLabels": {
+    "service": "__SERVICE_NAME__",
+    "phase": "phase7",
+    "signal": "task_failures",
+    "severity": "critical"
+  },
+  "conditions": [
+    {
+      "displayName": "Non-OK task attempt rate > 0.05/s for 10m",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_tasks_queue\" AND resource.labels.queue_id=\"__QUEUE_NAME__\" AND metric.type=\"cloudtasks.googleapis.com/queue/task_attempt_count\" AND metric.labels.response_code!=\"ok\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_RATE",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "groupByFields": [
+              "resource.labels.queue_id"
+            ]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.05,
+        "duration": "600s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "combiner": "OR",
+  "enabled": true,
+  "alertStrategy": {
+    "autoClose": "3600s"
+  }
+}

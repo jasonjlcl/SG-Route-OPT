@@ -23,6 +23,7 @@ from app.services.geocoding import geocode_dataset
 from app.services.job_pipeline import create_optimize_pipeline_job
 from app.services.jobs import create_job, enqueue_job
 from app.services.optimization import OptimizationPayload, optimize_dataset
+from app.services.scale_guardrails import validate_optimize_request_scale
 from app.utils.db import get_db
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["datasets"])
@@ -102,6 +103,8 @@ def optimize(
     sync: bool = Query(default=False),
     db: Session = Depends(get_db),
 ) -> dict:
+    validate_optimize_request_scale(db, dataset_id=dataset_id)
+
     if sync:
         result = optimize_dataset(
             db,
@@ -142,6 +145,8 @@ def optimize_ab_test(
     payload: OptimizeExperimentRequest,
     db: Session = Depends(get_db),
 ) -> dict:
+    validate_optimize_request_scale(db, dataset_id=dataset_id)
+
     job = create_job(
         db,
         job_type="OPTIMIZE_AB_SIMULATION",

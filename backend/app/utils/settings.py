@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     app_base_url: str = Field(default="http://localhost:8000", alias="APP_BASE_URL")
     frontend_base_url: str = Field(default="http://localhost:5173", alias="FRONTEND_BASE_URL")
     jobs_force_inline: bool = Field(default=False, alias="JOBS_FORCE_INLINE")
+    optimize_max_stops: int = Field(default=80, ge=1, alias="OPTIMIZE_MAX_STOPS")
+    optimize_max_matrix_elements: int = Field(default=6500, ge=1, alias="OPTIMIZE_MAX_MATRIX_ELEMENTS")
 
     ml_drift_threshold: float = Field(default=0.2, alias="ML_DRIFT_THRESHOLD")
     ml_retrain_min_rows: int = Field(default=200, alias="ML_RETRAIN_MIN_ROWS")
@@ -69,6 +71,7 @@ class Settings(BaseSettings):
 
     scheduler_token: str | None = Field(default=None, alias="SCHEDULER_TOKEN")
     signed_url_ttl_seconds: int = Field(default=3600, alias="SIGNED_URL_TTL_SECONDS")
+    optimize_latency_warn_seconds: int = Field(default=1200, ge=60, alias="OPTIMIZE_LATENCY_WARN_SECONDS")
 
     @field_validator(
         "onemap_email",

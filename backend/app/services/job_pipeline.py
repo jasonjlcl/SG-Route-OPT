@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+import logging
 import time
 import uuid
 from typing import Any, Callable
@@ -39,6 +40,8 @@ from app.services.vertex_ai import run_vertex_batch_prediction
 from app.utils.db import SessionLocal
 from app.utils.errors import AppError
 from app.utils.settings import get_settings
+
+LOGGER = logging.getLogger(__name__)
 
 
 PIPELINE_STEPS = ["GEOCODE", "BUILD_MATRIX", "OPTIMIZE", "GENERATE_EXPORTS"]
@@ -562,6 +565,26 @@ def process_task_payload(task_payload: dict[str, Any]) -> None:
             message="All optimization steps completed",
             result_ref=parse_result_ref(latest) or {},
         )
+        completed = get_job_or_404(db, job_id)
+        result_ref = parse_result_ref(completed) or {}
+        latency_s = max(0, int((datetime.utcnow() - completed.created_at).total_seconds()))
+        warn_threshold_s = int(get_settings().optimize_latency_warn_seconds)
+        LOGGER.info(
+            "OPTIMIZE_PIPELINE_COMPLETE job_id=%s dataset_id=%s plan_id=%s latency_s=%s",
+            job_id,
+            payload.get("dataset_id"),
+            result_ref.get("plan_id"),
+            latency_s,
+        )
+        if latency_s >= warn_threshold_s:
+            LOGGER.warning(
+                "OPTIMIZE_LATENCY_SLOW job_id=%s dataset_id=%s plan_id=%s latency_s=%s threshold_s=%s",
+                job_id,
+                payload.get("dataset_id"),
+                result_ref.get("plan_id"),
+                latency_s,
+                warn_threshold_s,
+            )
     except InjectedRetryDrillError:
         raise
     except AppError as exc:

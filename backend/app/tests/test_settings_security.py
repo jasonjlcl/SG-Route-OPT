@@ -50,3 +50,14 @@ def test_settings_normalize_secret_whitespace(monkeypatch):
     )
     assert settings.scheduler_token == "token-123"
     assert settings.google_routes_api_key is None
+
+
+def test_optimize_latency_warn_seconds_enforces_minimum(monkeypatch):
+    with pytest.raises(ValidationError):
+        _load_with_env(
+            monkeypatch,
+            {
+                "APP_ENV": "dev",
+                "OPTIMIZE_LATENCY_WARN_SECONDS": "30",
+            },
+        )

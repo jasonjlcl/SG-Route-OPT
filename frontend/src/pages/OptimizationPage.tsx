@@ -39,6 +39,114 @@ type AbSimulationResult = {
   model_version?: string;
 };
 
+type OptimizeUiErrorAction = "dismiss" | "upload";
+
+type OptimizeUiError = {
+  title: string;
+  cause: string;
+  nextStep: string;
+  action: OptimizeUiErrorAction;
+  actionLabel: string;
+  toastTitle: string;
+  toastDescription: string;
+};
+
+function _toNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function _parseErrorDetails(raw: unknown): Record<string, unknown> {
+  if (raw && typeof raw === "object") {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function _buildOptimizeUiError(
+  payload: { error_code?: unknown; message?: unknown; details?: unknown },
+  mode: "optimization" | "ab_simulation"
+): OptimizeUiError {
+  const errorCode = String(payload.error_code ?? "").trim().toUpperCase();
+  const message =
+    typeof payload.message === "string" && payload.message.trim()
+      ? payload.message.trim()
+      : mode === "ab_simulation"
+        ? "A/B simulation failed."
+        : "Optimization failed.";
+
+  const details = _parseErrorDetails(payload.details);
+  const stopCount = _toNumber(details.stop_count);
+  const maxStops = _toNumber(details.max_stops);
+  const estimatedMatrixElements = _toNumber(details.estimated_matrix_elements);
+  const maxMatrixElements = _toNumber(details.max_matrix_elements);
+
+  if (errorCode === "OPTIMIZE_MAX_STOPS_EXCEEDED") {
+    const cause =
+      stopCount !== null && maxStops !== null
+        ? `Dataset has ${stopCount} stops, but the current limit is ${maxStops}.`
+        : "This dataset exceeds the configured stop limit for optimization.";
+    return {
+      title: "Request exceeds stop limit",
+      cause,
+      nextStep:
+        "Split your input into smaller datasets (for example by zone or priority tier), re-upload, then rerun optimization.",
+      action: "upload",
+      actionLabel: "Go to Upload",
+      toastTitle: "Optimization request too large",
+      toastDescription: cause,
+    };
+  }
+
+  if (errorCode === "OPTIMIZE_MAX_MATRIX_ELEMENTS_EXCEEDED") {
+    const cause =
+      estimatedMatrixElements !== null && maxMatrixElements !== null
+        ? `Estimated matrix size is ${estimatedMatrixElements.toLocaleString()} elements, above the limit of ${maxMatrixElements.toLocaleString()}.`
+        : "This dataset exceeds the configured matrix-size limit for optimization.";
+    return {
+      title: "Request exceeds matrix limit",
+      cause,
+      nextStep:
+        "Reduce stop count or split this dataset into smaller runs, then rerun optimization to keep matrix build time bounded.",
+      action: "upload",
+      actionLabel: "Go to Upload",
+      toastTitle: "Optimization request too large",
+      toastDescription: cause,
+    };
+  }
+
+  return {
+    title: mode === "ab_simulation" ? "A/B simulation failed" : "Optimization failed",
+    cause: message,
+    nextStep:
+      mode === "ab_simulation"
+        ? "Check constraints and model settings, then rerun the simulation."
+        : "Check constraints and geocoding status, then rerun optimization.",
+    action: "dismiss",
+    actionLabel: "Dismiss",
+    toastTitle: mode === "ab_simulation" ? "A/B simulation failed" : "Optimization failed",
+    toastDescription: message,
+  };
+}
+
 function normalizeOptimizationResult(jobData: any): OptimizationResult | null {
   const resultRef = jobData?.result_ref;
   if (!resultRef || typeof resultRef !== "object") return null;
@@ -78,7 +186,7 @@ export function OptimizationPage() {
   const [experimentModelVersion, setExperimentModelVersion] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<OptimizeUiError | null>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [abResult, setAbResult] = useState<AbSimulationResult | null>(null);
 
@@ -141,6 +249,7 @@ export function OptimizationPage() {
     const job = optimizeJob.job;
     if (!job) return;
     if (job.status === "SUCCEEDED") {
+      setError(null);
       localStorage.removeItem("optimize_job_id");
       setActiveJobId(null);
       void loadFromJobResult(job);
@@ -152,8 +261,16 @@ export function OptimizationPage() {
     } else if (job.status === "FAILED") {
       localStorage.removeItem("optimize_job_id");
       setActiveJobId(null);
-      setError(job.message ?? "Optimization failed.");
-      toast.error("Optimization failed", { description: job.message ?? "Adjust constraints and retry." });
+      const uiError = _buildOptimizeUiError(
+        {
+          error_code: job.error_code,
+          message: job.message,
+          details: job.error_detail,
+        },
+        "optimization"
+      );
+      setError(uiError);
+      toast.error(uiError.toastTitle, { description: uiError.toastDescription });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [optimizeJob.job?.status, optimizeJob.job?.message]);
@@ -162,14 +279,23 @@ export function OptimizationPage() {
     const job = experimentJob.job;
     if (!job) return;
     if (job.status === "SUCCEEDED") {
+      setError(null);
       setExperimentJobId(null);
       const resultRef = (job.result_ref || {}) as AbSimulationResult;
       setAbResult(resultRef);
       toast.success("A/B simulation complete", { description: "Baseline vs ML KPI comparison ready." });
     } else if (job.status === "FAILED") {
       setExperimentJobId(null);
-      setError(job.message ?? "A/B simulation failed.");
-      toast.error("A/B simulation failed", { description: job.message ?? "Check constraints and rerun." });
+      const uiError = _buildOptimizeUiError(
+        {
+          error_code: job.error_code,
+          message: job.message,
+          details: job.error_detail,
+        },
+        "ab_simulation"
+      );
+      setError(uiError);
+      toast.error(uiError.toastTitle, { description: uiError.toastDescription });
     }
   }, [experimentJob.job]);
 
@@ -195,7 +321,15 @@ export function OptimizationPage() {
 
   const runOptimization = async () => {
     if (!datasetId) {
-      setError("No dataset selected. Upload and geocode your stops first.");
+      setError({
+        title: "No dataset selected",
+        cause: "Upload and geocode a dataset before optimization.",
+        nextStep: "Go to Upload, add a dataset, run geocoding, then return to Optimization.",
+        action: "upload",
+        actionLabel: "Go to Upload",
+        toastTitle: "No dataset selected",
+        toastDescription: "Upload and geocode a dataset before optimization.",
+      });
       return;
     }
 
@@ -210,11 +344,9 @@ export function OptimizationPage() {
         description: "Running in background. You can monitor progress and come back later.",
       });
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? "Optimization failed. Confirm geocoding and constraints.";
-      setError(msg);
-      toast.error("Optimization failed", {
-        description: "Adjust constraints and retry.",
-      });
+      const uiError = _buildOptimizeUiError(err?.response?.data ?? {}, "optimization");
+      setError(uiError);
+      toast.error(uiError.toastTitle, { description: uiError.toastDescription });
     } finally {
       setLoading(false);
     }
@@ -235,7 +367,9 @@ export function OptimizationPage() {
         description: "Comparing baseline fallback vs ML-enhanced optimization.",
       });
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Unable to run A/B simulation.");
+      const uiError = _buildOptimizeUiError(err?.response?.data ?? {}, "ab_simulation");
+      setError(uiError);
+      toast.error(uiError.toastTitle, { description: uiError.toastDescription });
     }
   };
 
@@ -434,11 +568,11 @@ export function OptimizationPage() {
 
       {error && (
         <ErrorState
-          title="Optimization failed"
-          cause={error}
-          nextStep="Check constraints and geocoding status, then rerun optimization."
-          actionLabel="Dismiss"
-          onAction={() => setError(null)}
+          title={error.title}
+          cause={error.cause}
+          nextStep={error.nextStep}
+          actionLabel={error.actionLabel}
+          onAction={error.action === "upload" ? () => navigate("/upload") : () => setError(null)}
         />
       )}
 

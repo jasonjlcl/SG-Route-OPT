@@ -1,10 +1,13 @@
 import time
+import logging
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.utils.settings import get_settings
+
+LOGGER = logging.getLogger(__name__)
 
 
 settings = get_settings()
@@ -31,6 +34,12 @@ class RetrySession(Session):
                 if "database is locked" not in str(exc).lower() or attempt >= max_attempts:
                     raise
                 super().rollback()
+                LOGGER.warning(
+                    "DB_LOCK_RETRY context=sqlalchemy_retry_session attempt=%s max_attempts=%s error=%s",
+                    attempt,
+                    max_attempts,
+                    str(exc),
+                )
                 time.sleep(0.15 * attempt)
 
 

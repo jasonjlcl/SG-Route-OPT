@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -14,6 +15,8 @@ from app.services.cloud_tasks import enqueue_job_task
 from app.utils.db import SessionLocal
 from app.utils.errors import AppError
 from app.utils.settings import get_settings
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _json(data: Any) -> str:
@@ -43,6 +46,12 @@ def _commit_with_retry(db: Session, *, attempts: int = 3, base_sleep_s: float = 
             db.rollback()
             if "database is locked" not in str(exc).lower() or attempt >= attempts:
                 raise
+            LOGGER.warning(
+                "DB_LOCK_RETRY context=jobs attempt=%s max_attempts=%s error=%s",
+                attempt,
+                attempts,
+                str(exc),
+            )
             time.sleep(base_sleep_s * attempt)
 
 
@@ -205,6 +214,12 @@ def lock_step(
         if not _step_lease_is_expired(entry, now=now):
             return False
         entry["stale_reclaimed"] = int(entry.get("stale_reclaimed") or 0) + 1
+        LOGGER.warning(
+            "PIPELINE_STALE_LOCK_RECLAIMED job_id=%s step=%s stale_reclaimed=%s",
+            job_id,
+            step,
+            entry["stale_reclaimed"],
+        )
 
     entry["status"] = "RUNNING"
     entry["lock_token"] = lock_token

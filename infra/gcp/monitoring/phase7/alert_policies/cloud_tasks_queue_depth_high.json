@@ -1,0 +1,42 @@
+{
+  "displayName": "sg-route-opt - Cloud Tasks queue depth high (possible stuck jobs)",
+  "documentation": {
+    "content": "Queue depth has remained high for an extended period. This can indicate stuck jobs, blocked task handlers, or downstream dependency issues.",
+    "mimeType": "text/markdown"
+  },
+  "userLabels": {
+    "service": "__SERVICE_NAME__",
+    "phase": "phase7",
+    "signal": "stuck_jobs",
+    "severity": "warning"
+  },
+  "conditions": [
+    {
+      "displayName": "Cloud Tasks queue depth > 80 for 10m",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_tasks_queue\" AND resource.labels.queue_id=\"__QUEUE_NAME__\" AND metric.type=\"cloudtasks.googleapis.com/queue/depth\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_MEAN",
+            "crossSeriesReducer": "REDUCE_MAX",
+            "groupByFields": [
+              "resource.labels.queue_id"
+            ]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 80,
+        "duration": "600s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "combiner": "OR",
+  "enabled": true,
+  "alertStrategy": {
+    "autoClose": "3600s"
+  }
+}

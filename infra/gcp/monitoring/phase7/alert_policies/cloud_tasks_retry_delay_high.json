@@ -1,0 +1,42 @@
+{
+  "displayName": "sg-route-opt - Cloud Tasks retry delay p95 high",
+  "documentation": {
+    "content": "Cloud Tasks attempt delay p95 is elevated, indicating retries are aging and task completion is lagging behind dispatch.",
+    "mimeType": "text/markdown"
+  },
+  "userLabels": {
+    "service": "__SERVICE_NAME__",
+    "phase": "phase7",
+    "signal": "retry_age",
+    "severity": "warning"
+  },
+  "conditions": [
+    {
+      "displayName": "Task attempt delay p95 > 300000 ms for 10m",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_tasks_queue\" AND resource.labels.queue_id=\"__QUEUE_NAME__\" AND metric.type=\"cloudtasks.googleapis.com/queue/task_attempt_delays\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_PERCENTILE_95",
+            "crossSeriesReducer": "REDUCE_MAX",
+            "groupByFields": [
+              "resource.labels.queue_id"
+            ]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 300000,
+        "duration": "600s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "combiner": "OR",
+  "enabled": true,
+  "alertStrategy": {
+    "autoClose": "3600s"
+  }
+}

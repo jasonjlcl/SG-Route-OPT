@@ -1,0 +1,286 @@
+{
+  "displayName": "sg-route-opt - Core SLO dashboard",
+  "gridLayout": {
+    "columns": "2",
+    "widgets": [
+      {
+        "title": "Cloud Run request count (rate)",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__SERVICE_NAME__\" AND metric.type=\"run.googleapis.com/request_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_RATE",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": [
+                      "resource.labels.service_name"
+                    ]
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "legendTemplate": "requests/s"
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "req/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Cloud Run 5xx rate",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__SERVICE_NAME__\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class=\"500\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_RATE",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": [
+                      "resource.labels.service_name"
+                    ]
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "legendTemplate": "5xx/s"
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "5xx/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Cloud Tasks queue depth",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_tasks_queue\" AND resource.labels.queue_id=\"__QUEUE_NAME__\" AND metric.type=\"cloudtasks.googleapis.com/queue/depth\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_MEAN",
+                    "crossSeriesReducer": "REDUCE_MAX",
+                    "groupByFields": [
+                      "resource.labels.queue_id"
+                    ]
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "legendTemplate": "depth"
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "tasks",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Cloud Tasks retry delay p95",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_tasks_queue\" AND resource.labels.queue_id=\"__QUEUE_NAME__\" AND metric.type=\"cloudtasks.googleapis.com/queue/task_attempt_delays\"",
+                  "aggregation": {
+                    "alignmentPeriod": "300s",
+                    "perSeriesAligner": "ALIGN_PERCENTILE_95",
+                    "crossSeriesReducer": "REDUCE_MAX",
+                    "groupByFields": [
+                      "resource.labels.queue_id"
+                    ]
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "legendTemplate": "p95 delay"
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Cloud Tasks non-OK attempts (rate)",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_tasks_queue\" AND resource.labels.queue_id=\"__QUEUE_NAME__\" AND metric.type=\"cloudtasks.googleapis.com/queue/task_attempt_count\" AND metric.labels.response_code!=\"ok\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_RATE",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": [
+                      "resource.labels.queue_id"
+                    ]
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "legendTemplate": "non-ok/s"
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "attempts/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "DB lock retries (rate)",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__SERVICE_NAME__\" AND metric.type=\"logging.googleapis.com/user/sg_route_opt_db_lock_retry_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_RATE",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": [
+                      "resource.labels.service_name"
+                    ]
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "legendTemplate": "db_lock_retry/s"
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "events/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Fallback events (rate)",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__SERVICE_NAME__\" AND metric.type=\"logging.googleapis.com/user/sg_route_opt_fallback_event_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_RATE",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": [
+                      "resource.labels.service_name"
+                    ]
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "legendTemplate": "fallback/s"
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "events/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Signed URL failures (count)",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__SERVICE_NAME__\" AND metric.type=\"logging.googleapis.com/user/sg_route_opt_signed_url_failure_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "300s",
+                    "perSeriesAligner": "ALIGN_SUM",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": [
+                      "resource.labels.service_name"
+                    ]
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR",
+              "legendTemplate": "signed_url_failures"
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "events/5m",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Slow optimize + stale lock recovery (count)",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__SERVICE_NAME__\" AND metric.type=\"logging.googleapis.com/user/sg_route_opt_optimize_slow_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "600s",
+                    "perSeriesAligner": "ALIGN_SUM",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": [
+                      "resource.labels.service_name"
+                    ]
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR",
+              "legendTemplate": "slow_optimize"
+            },
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__SERVICE_NAME__\" AND metric.type=\"logging.googleapis.com/user/sg_route_opt_stale_lock_reclaimed_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "600s",
+                    "perSeriesAligner": "ALIGN_SUM",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "groupByFields": [
+                      "resource.labels.service_name"
+                    ]
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR",
+              "legendTemplate": "stale_lock_reclaimed"
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "events/10m",
+            "scale": "LINEAR"
+          }
+        }
+      }
+    ]
+  }
+}

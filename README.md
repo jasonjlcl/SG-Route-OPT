@@ -117,6 +117,9 @@ General runtime options:
 - `FRONTEND_BASE_URL` (default `http://localhost:5173`)
 - `JOBS_FORCE_INLINE` (set `true` for local/test to execute queued steps inline)
 - `SIGNED_URL_TTL_SECONDS` (default `3600`)
+- `OPTIMIZE_LATENCY_WARN_SECONDS` (default `1200`, emits slow-optimize warning log marker for alerting)
+- `OPTIMIZE_MAX_STOPS` (default `80`, tuned for single-instance cloud profile; rejects oversized optimize/ab-test requests early)
+- `OPTIMIZE_MAX_MATRIX_ELEMENTS` (default `6500`, tuned O(N^2) cap; rejects requests with infeasible matrix size early)
 
 If OneMap credentials are empty, backend automatically uses deterministic mock geocoding/routing for local development.
 
@@ -192,6 +195,8 @@ Controls:
 
 - `RUN_DB_MIGRATIONS=true|false` (default `true`)
 - `MIGRATION_JOB_NAME` (default `${SERVICE_NAME}-db-migrate`)
+- `RUN_PHASE7_MONITORING=true|false` (default `false`; apply Phase 7 alerts + dashboard)
+- `MONITORING_NOTIFICATION_CHANNELS` (optional comma-separated channel IDs for policy notifications)
 
 Frontend deploy example (production static build):
 
@@ -224,6 +229,21 @@ Monitoring/alerting:
 - Policy file: `infra/gcp/monitoring/cloud_run_sg_route_opt_5xx_error_rate_policy.json`
 - Active policy: `Cloud Run sg-route-opt-api - 5xx Error Rate > 5%`
 - Created as: `projects/gen-lang-client-0328386378/alertPolicies/4637109870947199083`
+
+Phase 7 observability assets:
+
+- Apply script: `infra/gcp/monitoring/apply_phase7_monitoring.sh`
+- Alert templates: `infra/gcp/monitoring/phase7/alert_policies/*.json`
+- Dashboard template: `infra/gcp/monitoring/phase7/dashboard/sg_route_opt_core_slo_dashboard.json`
+
+Phase 7 signals covered:
+
+- stuck jobs (Cloud Tasks queue depth + stale lock reclaim events)
+- Cloud Tasks retry age and failure attempt rate
+- DB lock retry spikes (`DB_LOCK_RETRY`)
+- fallback event rate spikes (Google/OneMap fallbacks)
+- signed URL failures
+- slow optimize runs (`OPTIMIZE_LATENCY_SLOW`)
 
 ## Current Production Snapshot (February 18, 2026)
 

@@ -1,0 +1,42 @@
+{
+  "displayName": "sg-route-opt - DB lock retry spike",
+  "documentation": {
+    "content": "Database lock retry rate is elevated. This may indicate write contention or transaction pressure that can degrade job throughput.",
+    "mimeType": "text/markdown"
+  },
+  "userLabels": {
+    "service": "__SERVICE_NAME__",
+    "phase": "phase7",
+    "signal": "db_locks",
+    "severity": "warning"
+  },
+  "conditions": [
+    {
+      "displayName": "DB_LOCK_RETRY rate > 0.05/s for 5m",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__SERVICE_NAME__\" AND metric.type=\"logging.googleapis.com/user/sg_route_opt_db_lock_retry_count\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_RATE",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "groupByFields": [
+              "resource.labels.service_name"
+            ]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.05,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "combiner": "OR",
+  "enabled": true,
+  "alertStrategy": {
+    "autoClose": "3600s"
+  }
+}
