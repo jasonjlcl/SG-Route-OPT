@@ -80,12 +80,14 @@ def update_rollout(payload: dict[str, Any], db: Session = Depends(get_db)) -> di
 @router.get("/config")
 def get_ml_config(db: Session = Depends(get_db)) -> dict[str, Any]:
     rollout = get_latest_rollout(db) or {}
+    settings = get_settings()
     return {
         "active_model_version": rollout.get("active_version"),
         "canary_model_version": rollout.get("canary_version"),
         "canary_percent": rollout.get("canary_percent", 0),
         "canary_enabled": rollout.get("enabled", False),
-        "feature_vertex_ai": get_settings().feature_vertex_ai,
+        "feature_vertex_ai": settings.feature_vertex_ai,
+        "feature_vertex_batch_override": settings.feature_vertex_batch_override,
     }
 
 
@@ -98,12 +100,14 @@ def update_ml_config(payload: dict[str, Any], db: Session = Depends(get_db)) -> 
         canary_percent=int(payload.get("canary_percent", 0)),
         enabled=bool(payload.get("canary_enabled", False)),
     )
+    settings = get_settings()
     return {
         "active_model_version": updated.get("active_version"),
         "canary_model_version": updated.get("canary_version"),
         "canary_percent": updated.get("canary_percent", 0),
         "canary_enabled": updated.get("enabled", False),
-        "feature_vertex_ai": get_settings().feature_vertex_ai,
+        "feature_vertex_ai": settings.feature_vertex_ai,
+        "feature_vertex_batch_override": settings.feature_vertex_batch_override,
     }
 
 

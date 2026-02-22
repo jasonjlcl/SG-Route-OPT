@@ -222,6 +222,8 @@ def _apply_vertex_batch_if_enabled(db, *, job_id: str, artifact: dict[str, Any])
     settings = get_settings()
     if not settings.feature_vertex_ai:
         return {"vertex_batch_used": False, "reason": "feature_flag_disabled"}
+    if not settings.feature_vertex_batch_override:
+        return {"vertex_batch_used": False, "reason": "batch_override_disabled"}
 
     rollout = get_latest_rollout(db) or {}
     active_version = rollout.get("active_version")
@@ -239,7 +241,8 @@ def _apply_vertex_batch_if_enabled(db, *, job_id: str, artifact: dict[str, Any])
     nodes = artifact.get("nodes", [])
     distance_matrix = artifact.get("distance_matrix_m", [])
     base_duration_matrix = artifact.get("base_duration_matrix_s", [])
-    if not nodes or not distance_matrix or not base_duration_matrix:
+    duration_matrix = artifact.get("duration_matrix_s", [])
+    if not nodes or not distance_matrix or not base_duration_matrix or not duration_matrix:
         return {"vertex_batch_used": False, "reason": "artifact_missing_features"}
 
     depart_bucket = str(artifact.get("depart_bucket") or "08:00")
@@ -291,25 +294,39 @@ def _apply_vertex_batch_if_enabled(db, *, job_id: str, artifact: dict[str, Any])
             unique_keys.append(bucket_key)
             unique_rows.append(features)
 
-    predictions = run_vertex_batch_prediction(
+    batch_result = run_vertex_batch_prediction(
         model_resource=str(model_resource),
         rows=unique_rows,
         job_key=f"{job_id}-matrix",
     )
+    predictions = batch_result.predictions or []
     if not predictions or len(predictions) != len(unique_keys):
-        return {"vertex_batch_used": False, "reason": "batch_prediction_unavailable"}
+        return {
+            "vertex_batch_used": False,
+            "reason": batch_result.reason or "batch_prediction_unavailable",
+            "job_name": batch_result.job_name,
+            "state": batch_result.state,
+        }
 
     pred_by_bucket = {unique_keys[idx]: float(predictions[idx]) for idx in range(len(unique_keys))}
     for (i, j), bucket_key in pair_to_bucket.items():
         pred = pred_by_bucket.get(bucket_key)
         if pred is None:
             continue
-        artifact["duration_matrix_s"][i][j] = max(1, int(round(float(pred))))
+        duration_matrix[i][j] = max(1, int(round(float(pred))))
     artifact["chosen_model_version"] = str(active_version)
     artifact["vertex_batch_used"] = True
     artifact["vertex_model_resource"] = str(model_resource)
     artifact["vertex_bucket_cache_size"] = len(unique_keys)
-    return {"vertex_batch_used": True, "model_version": str(active_version), "bucket_cache_size": len(unique_keys)}
+    artifact["vertex_batch_job_name"] = batch_result.job_name
+    artifact["vertex_batch_reason"] = batch_result.reason
+    return {
+        "vertex_batch_used": True,
+        "model_version": str(active_version),
+        "bucket_cache_size": len(unique_keys),
+        "job_name": batch_result.job_name,
+        "state": batch_result.state,
+    }
 
 
 def _run_build_matrix_step(*, job_id: str, payload: dict[str, Any], lock_token: str) -> dict[str, Any]:

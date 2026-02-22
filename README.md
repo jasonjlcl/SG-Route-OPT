@@ -95,7 +95,14 @@ Core env vars:
 ML and rollout options:
 
 - `FEATURE_VERTEX_AI` (`true`/`false`, default `false`)
+- `FEATURE_VERTEX_BATCH_OVERRIDE` (`true`/`false`, default `true`; controls async matrix override via Vertex batch prediction)
 - `VERTEX_MODEL_DISPLAY_NAME` (default `route-time-regressor`)
+- `VERTEX_BATCH_MACHINE_TYPE` (default `n1-standard-4` for custom-model batch prediction)
+- `VERTEX_BATCH_STARTING_REPLICA_COUNT` (default `1`)
+- `VERTEX_BATCH_MAX_REPLICA_COUNT` (default `1`)
+- `VERTEX_BATCH_TIMEOUT_SECONDS` (default `300`, max wait for Vertex batch job before falling back)
+- `VERTEX_BATCH_POLL_INTERVAL_SECONDS` (default `5`)
+- `VERTEX_BATCH_OUTPUT_WAIT_SECONDS` (default `30`, extra wait after batch success for JSONL outputs to appear in GCS)
 - `ML_DRIFT_THRESHOLD`
 - `ML_RETRAIN_MIN_ROWS`
 
@@ -253,10 +260,12 @@ Phase 7 signals covered:
 - URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`
 - Frontend service: `sg-route-opt-web`
 - Webapp URL: `https://sg-route-opt-web-7wgewdyenq-as.a.run.app`
-- Latest API revision: `sg-route-opt-api-00039-jw6`
+- Latest API revision: `sg-route-opt-api-00044-k8w`
 - Latest frontend revision: `sg-route-opt-web-00009-mcl`
 - Queue: `routeapp-queue`
 - Scheduler job: `route-ml-drift-weekly`
+- Cloud SQL instance: `sg-route-opt-pg` (`asia-southeast1`)
+- Migration job: `sg-route-opt-api-db-migrate` (latest successful execution: `sg-route-opt-api-db-migrate-ckww2`)
 - Custom domains:
   - `https://app.sgroute.com`
   - `https://api.sgroute.com`
@@ -270,6 +279,8 @@ Phase 7 signals covered:
   - `feature_eval_dashboard=true`
 - ML config endpoint is live:
   - `GET /api/v1/ml/config` includes `feature_vertex_ai` state and rollout fields.
+- Active model version:
+  - `v20260222075015196509`
 - Deploy script probe targets (when deployed via `infra/gcp/deploy.sh`):
   - startup probe: `/health/ready`
   - liveness probe: `/health/live`
@@ -280,6 +291,86 @@ Phase 7 signals covered:
   - `use_live_traffic=true` optimize requests return `eta_source=google_traffic`
   - `traffic_timestamp` is non-null for live-traffic plans
 - Fallback diagnostics include structured `details=` payload in logs for troubleshooting.
+
+## Production Ops Runbook (DB + ML)
+
+Cloud SQL hardening baseline (production):
+
+- Instance: `sg-route-opt-pg` (`gen-lang-client-0328386378:asia-southeast1:sg-route-opt-pg`)
+- Backups: enabled (`startTime=22:00`, retained backups `7`)
+- Maintenance window: Sunday `03:00` (UTC)
+- Deletion protection: enabled
+- Connector enforcement: `REQUIRED`
+- Network posture: public IP still enabled (`ipv4Enabled=true`)
+- Effective org policy checks:
+  - `constraints/sql.restrictPublicIp` -> `False`
+  - `constraints/sql.restrictAuthorizedNetworks` -> `False`
+
+Verification commands:
+
+```bash
+gcloud sql instances describe sg-route-opt-pg \
+  --project gen-lang-client-0328386378 \
+  --format="yaml(connectionName,settings.backupConfiguration,settings.maintenanceWindow,settings.deletionProtectionEnabled,settings.connectorEnforcement,settings.ipConfiguration)"
+
+gcloud org-policies describe constraints/sql.restrictPublicIp \
+  --project gen-lang-client-0328386378 --effective \
+  --format="value(spec.rules[0].enforce)"
+
+gcloud org-policies describe constraints/sql.restrictAuthorizedNetworks \
+  --project gen-lang-client-0328386378 --effective \
+  --format="value(spec.rules[0].enforce)"
+```
+
+Migration job procedure (production):
+
+1. Run migrations:
+
+```bash
+gcloud run jobs execute sg-route-opt-api-db-migrate \
+  --region asia-southeast1 \
+  --project gen-lang-client-0328386378 \
+  --wait
+```
+
+2. Verify latest execution:
+
+```bash
+gcloud run jobs describe sg-route-opt-api-db-migrate \
+  --region asia-southeast1 \
+  --project gen-lang-client-0328386378 \
+  --format="yaml(status.latestCreatedExecution)"
+```
+
+3. Confirm service readiness after schema changes:
+
+```bash
+curl -sS https://api.sgroute.com/health/ready
+curl -sS https://api.sgroute.com/api/v1/health
+```
+
+Model rollout and smoke verification (production):
+
+```bash
+curl -sS https://api.sgroute.com/api/v1/ml/config
+curl -sS https://api.sgroute.com/api/v1/ml/models
+```
+
+Expected for current rollout:
+
+- `active_model_version=v20260222075015196509`
+- `feature_vertex_ai=true`
+
+Optimize smoke test check (real API output):
+
+1. Upload + geocode a small dataset.
+2. Run optimize with `use_live_traffic=false`.
+3. Inspect `eta_source` and (jobs API) `result_ref.optimize.model_version`.
+
+Interpretation:
+
+- `eta_source=ml_baseline` or `ml_uplift` with non-fallback model version -> ML path active.
+- `eta_source=onemap` and `model_version=fallback_v1` -> fallback path active; investigate ML artifact loading / Vertex batch prediction path.
 
 ## Operations Notes
 

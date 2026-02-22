@@ -1,0 +1,109 @@
+from types import SimpleNamespace
+
+from app.services import job_pipeline
+from app.services import vertex_ai
+
+
+def _artifact_fixture() -> dict:
+    return {
+        "nodes": [
+            {"lat": 1.30, "lon": 103.80},
+            {"lat": 1.31, "lon": 103.81},
+        ],
+        "distance_matrix_m": [
+            [0.0, 1000.0],
+            [1100.0, 0.0],
+        ],
+        "base_duration_matrix_s": [
+            [0.0, 120.0],
+            [130.0, 0.0],
+        ],
+        "duration_matrix_s": [
+            [0, 120],
+            [130, 0],
+        ],
+        "depart_bucket": "08:00",
+        "day_of_week": 1,
+    }
+
+
+def test_vertex_batch_override_can_be_disabled(monkeypatch):
+    monkeypatch.setattr(
+        job_pipeline,
+        "get_settings",
+        lambda: SimpleNamespace(feature_vertex_ai=True, feature_vertex_batch_override=False),
+    )
+
+    result = job_pipeline._apply_vertex_batch_if_enabled(db=object(), job_id="job-1", artifact=_artifact_fixture())
+
+    assert result["vertex_batch_used"] is False
+    assert result["reason"] == "batch_override_disabled"
+
+
+def test_vertex_batch_propagates_unavailable_reason(monkeypatch):
+    monkeypatch.setattr(
+        job_pipeline,
+        "get_settings",
+        lambda: SimpleNamespace(feature_vertex_ai=True, feature_vertex_batch_override=True),
+    )
+    monkeypatch.setattr(job_pipeline, "get_latest_rollout", lambda _db: {"active_version": "v1"})
+    monkeypatch.setattr(job_pipeline, "get_model_metadata", lambda _db, _v: {"vertex_model_resource": "projects/p/locations/l/models/1"})
+    monkeypatch.setattr(
+        job_pipeline,
+        "run_vertex_batch_prediction",
+        lambda **_kwargs: vertex_ai.VertexBatchPredictionResult(
+            predictions=None,
+            reason="job_timeout",
+            job_name="projects/p/locations/l/batchPredictionJobs/99",
+            state="JOB_STATE_RUNNING",
+        ),
+    )
+
+    result = job_pipeline._apply_vertex_batch_if_enabled(db=object(), job_id="job-2", artifact=_artifact_fixture())
+
+    assert result["vertex_batch_used"] is False
+    assert result["reason"] == "job_timeout"
+    assert result["job_name"].endswith("/99")
+    assert result["state"] == "JOB_STATE_RUNNING"
+
+
+def test_vertex_batch_success_updates_duration_matrix(monkeypatch):
+    artifact = _artifact_fixture()
+    monkeypatch.setattr(
+        job_pipeline,
+        "get_settings",
+        lambda: SimpleNamespace(feature_vertex_ai=True, feature_vertex_batch_override=True),
+    )
+    monkeypatch.setattr(job_pipeline, "get_latest_rollout", lambda _db: {"active_version": "v2026"})
+    monkeypatch.setattr(
+        job_pipeline,
+        "get_model_metadata",
+        lambda _db, _v: {"vertex_model_resource": "projects/p/locations/l/models/2"},
+    )
+    monkeypatch.setattr(
+        job_pipeline,
+        "run_vertex_batch_prediction",
+        lambda **_kwargs: vertex_ai.VertexBatchPredictionResult(
+            predictions=[151.2, 241.6],
+            reason="success",
+            job_name="projects/p/locations/l/batchPredictionJobs/100",
+            state="JOB_STATE_SUCCEEDED",
+        ),
+    )
+
+    result = job_pipeline._apply_vertex_batch_if_enabled(db=object(), job_id="job-3", artifact=artifact)
+
+    assert result["vertex_batch_used"] is True
+    assert result["model_version"] == "v2026"
+    assert artifact["duration_matrix_s"][0][1] == 151
+    assert artifact["duration_matrix_s"][1][0] == 242
+    assert artifact["vertex_batch_used"] is True
+    assert artifact["vertex_batch_job_name"].endswith("/100")
+
+
+def test_vertex_helpers_parse_nested_prediction_shapes():
+    assert vertex_ai._coerce_row_id("7.0") == 7
+    assert vertex_ai._coerce_row_id("not-a-number") is None
+    assert vertex_ai._coerce_prediction_value([[123.4]]) == 123.4
+    assert vertex_ai._coerce_prediction_value({"value": [["88.5"]]}) == 88.5
+    assert vertex_ai._split_gcs_uri("gs://route_app/path/to/output/") == ("route_app", "path/to/output")

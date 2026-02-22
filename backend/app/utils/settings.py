@@ -45,7 +45,14 @@ class Settings(BaseSettings):
     maps_static_api_key: str | None = Field(default=None, alias="MAPS_STATIC_API_KEY")
 
     feature_vertex_ai: bool = Field(default=False, alias="FEATURE_VERTEX_AI")
+    feature_vertex_batch_override: bool = Field(default=True, alias="FEATURE_VERTEX_BATCH_OVERRIDE")
     vertex_model_display_name: str = Field(default="route-time-regressor", alias="VERTEX_MODEL_DISPLAY_NAME")
+    vertex_batch_machine_type: str = Field(default="n1-standard-4", alias="VERTEX_BATCH_MACHINE_TYPE")
+    vertex_batch_starting_replica_count: int = Field(default=1, ge=1, alias="VERTEX_BATCH_STARTING_REPLICA_COUNT")
+    vertex_batch_max_replica_count: int = Field(default=1, ge=1, alias="VERTEX_BATCH_MAX_REPLICA_COUNT")
+    vertex_batch_timeout_seconds: int = Field(default=300, ge=10, alias="VERTEX_BATCH_TIMEOUT_SECONDS")
+    vertex_batch_poll_interval_seconds: int = Field(default=5, ge=1, alias="VERTEX_BATCH_POLL_INTERVAL_SECONDS")
+    vertex_batch_output_wait_seconds: int = Field(default=30, ge=0, alias="VERTEX_BATCH_OUTPUT_WAIT_SECONDS")
     feature_google_traffic: bool = Field(default=False, alias="FEATURE_GOOGLE_TRAFFIC")
     feature_ml_uplift: bool = Field(default=False, alias="FEATURE_ML_UPLIFT")
     feature_eval_dashboard: bool = Field(default=False, alias="FEATURE_EVAL_DASHBOARD")
@@ -99,6 +106,7 @@ class Settings(BaseSettings):
         "gcp_project_id",
         "gcp_region",
         "gcs_bucket",
+        "vertex_batch_machine_type",
         "cloud_tasks_queue",
         mode="before",
     )
@@ -136,6 +144,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_required_production_settings(self) -> "Settings":
+        if self.vertex_batch_max_replica_count < self.vertex_batch_starting_replica_count:
+            raise ValueError("VERTEX_BATCH_MAX_REPLICA_COUNT must be >= VERTEX_BATCH_STARTING_REPLICA_COUNT.")
+
         if not self.is_production_mode:
             return self
 
