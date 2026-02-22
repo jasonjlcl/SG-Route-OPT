@@ -52,6 +52,7 @@ sequenceDiagram
     participant Tasks as Cloud Tasks
     participant OneMap as OneMap APIs
     participant Google as Google Routes API
+    participant Vertex as Vertex AI Batch Prediction
     participant Cache as Redis/Memory Cache
     participant DB as Database
 
@@ -75,7 +76,10 @@ sequenceDiagram
     API->>Cache: Check OD route cache
     API->>OneMap: Fetch missing route time/distance
     API->>Google: Optional live-traffic ETA path
-    API->>API: ML baseline + optional uplift matrix
+    API->>API: Build matrix + local ML baseline
+    API->>Vertex: Optional batch override (FEATURE_VERTEX_BATCH_OVERRIDE=true)
+    Vertex-->>API: Predicted durations or timeout/failure
+    API->>API: Apply Vertex override when available; otherwise keep local baseline
     API->>API: Solve VRPTW (OR-Tools)
     API->>DB: Persist plan/routes/route_stops + export refs
     API-->>Planner: Poll/stream job status -> SUCCEEDED/FAILED
@@ -137,6 +141,7 @@ Implemented:
 Current production behavior:
 - Baseline training supports both local artifact mode and Vertex-integrated registration mode.
 - Model selection for prediction is rollout-driven (`active_version`, optional canary split).
+- `GET /api/v1/ml/config` exposes both `feature_vertex_ai` and `feature_vertex_batch_override` operator flags.
 - Google traffic and ML uplift feature flags are supported in production runtime.
 - Runtime fallback diagnostics include structured `details=` payload for request-level failures.
 
@@ -167,6 +172,8 @@ Implemented:
 - OneMap route failures in OD construction now fall back to heuristic estimates instead of hard-failing matrix build.
 - Google traffic departure timestamp is clamped to a near-future value for API compatibility.
 - Google request failures capture request/cause/DNS diagnostics in logs.
+- Vertex batch override in `BUILD_MATRIX` is guarded by explicit feature flag and bounded timeouts/output-wait windows.
+- Async optimize job payload now captures Vertex batch diagnostics (`vertex_batch_used`, `reason`, optional `job_name`/`state`) when override is unavailable.
 - Pipeline step leases support stale-lock reclaim for Cloud Tasks redelivery safety.
 - Slow optimize and retry/failure conditions are surfaced through Phase 7 log markers for alerting.
 

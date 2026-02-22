@@ -278,7 +278,7 @@ Phase 7 signals covered:
   - `feature_ml_uplift=true`
   - `feature_eval_dashboard=true`
 - ML config endpoint is live:
-  - `GET /api/v1/ml/config` includes `feature_vertex_ai` state and rollout fields.
+  - `GET /api/v1/ml/config` includes `feature_vertex_ai`, `feature_vertex_batch_override`, and rollout fields.
 - Active model version:
   - `v20260222075015196509`
 - Deploy script probe targets (when deployed via `infra/gcp/deploy.sh`):
@@ -360,6 +360,7 @@ Expected for current rollout:
 
 - `active_model_version=v20260222075015196509`
 - `feature_vertex_ai=true`
+- `feature_vertex_batch_override=true|false` (operator-controlled batch override gate for async matrix build)
 
 Optimize smoke test check (real API output):
 
@@ -371,6 +372,9 @@ Interpretation:
 
 - `eta_source=ml_baseline` or `ml_uplift` with non-fallback model version -> ML path active.
 - `eta_source=onemap` and `model_version=fallback_v1` -> fallback path active; investigate ML artifact loading / Vertex batch prediction path.
+- For async optimize jobs, inspect `result_ref.vertex`:
+  - `vertex_batch_used=true` means Vertex batch override was applied in `BUILD_MATRIX`.
+  - `vertex_batch_used=false` with `reason` (for example `batch_override_disabled`, `job_timeout`, `output_not_ready`, `row_mismatch`) explains why local baseline was kept.
 
 ## Operations Notes
 
