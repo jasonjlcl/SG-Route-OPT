@@ -144,3 +144,36 @@ def test_vertex_output_blob_selector_handles_prediction_results():
     assert [blob.name for blob in blobs] == [
         "vertex/batch_outputs/job-1/prediction-run-1/prediction.results-00000-of-00001"
     ]
+
+
+def test_vertex_read_prediction_outputs_handles_instance_arrays():
+    class _Blob:
+        def __init__(self, name: str, payload: str) -> None:
+            self.name = name
+            self._payload = payload
+
+        def download_as_text(self, encoding: str = "utf-8") -> str:  # noqa: ARG002
+            return self._payload
+
+    class _Client:
+        def list_blobs(self, _bucket: str, prefix: str):
+            assert prefix == "vertex/batch_outputs/job-1/prediction-run-1"
+            return [
+                _Blob(
+                    "vertex/batch_outputs/job-1/prediction-run-1/prediction.results-00000-of-00001",
+                    '{"instance":[1.0,2.0],"prediction":111.5}\n{"instance":[3.0,4.0],"prediction":222.5}\n',
+                ),
+            ]
+
+    predictions, reason, parsed_count = vertex_ai._read_prediction_outputs(
+        client=_Client(),
+        bucket_name="route_app",
+        prefix_path="vertex/batch_outputs/job-1/prediction-run-1",
+        rows=[{"a": 1}, {"a": 2}],
+        poll_s=1,
+        wait_seconds=0,
+    )
+
+    assert reason == "success"
+    assert parsed_count == 2
+    assert predictions == [111.5, 222.5]

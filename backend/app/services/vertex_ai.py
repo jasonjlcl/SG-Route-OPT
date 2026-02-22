@@ -128,6 +128,49 @@ def _extract_prediction_record(payload: Any) -> tuple[int | None, float | None]:
     return row_id, _coerce_prediction_value(pred_raw)
 
 
+def _read_prediction_outputs(
+    *,
+    client: Any,
+    bucket_name: str,
+    prefix_path: str,
+    rows: list[dict[str, Any]],
+    poll_s: int,
+    wait_seconds: int,
+) -> tuple[list[float] | None, str, int]:
+    settle_deadline = time.monotonic() + max(0, int(wait_seconds))
+    blobs = _jsonl_prediction_blobs(client, bucket_name=bucket_name, prefix=prefix_path)
+    while not blobs and time.monotonic() < settle_deadline:
+        time.sleep(min(2, poll_s))
+        blobs = _jsonl_prediction_blobs(client, bucket_name=bucket_name, prefix=prefix_path)
+    if not blobs:
+        return None, "output_not_ready", 0
+
+    predictions: dict[int, float] = {}
+    next_unkeyed_row_id = 0
+    for blob in blobs:
+        content = blob.download_as_text(encoding="utf-8")
+        for line in content.splitlines():
+            if not line.strip():
+                continue
+            payload = json.loads(line)
+            row_id, value = _extract_prediction_record(payload)
+
+            if value is not None and row_id is None:
+                while next_unkeyed_row_id in predictions and next_unkeyed_row_id < len(rows):
+                    next_unkeyed_row_id += 1
+                row_id = next_unkeyed_row_id
+                next_unkeyed_row_id += 1
+
+            if value is not None and row_id is not None and 0 <= row_id < len(rows):
+                predictions[row_id] = value
+
+    if len(predictions) != len(rows):
+        return None, "row_mismatch", len(predictions)
+
+    ordered = [float(predictions[idx]) for idx in range(len(rows))]
+    return ordered, "success", len(predictions)
+
+
 def _serialize_feature_row(row: dict[str, Any]) -> list[float]:
     values: list[float] = []
     for column in FEATURE_COLUMNS:
@@ -289,6 +332,39 @@ def run_vertex_batch_prediction(
             time.sleep(poll_s)
 
         if batch_info is None or _job_state_name(batch_info.state) != "JOB_STATE_SUCCEEDED":
+            if batch_info is not None:
+                output_directory = str(batch_info.output_info.gcs_output_directory or "").strip()
+                output_target = _split_gcs_uri(output_directory)
+                if output_target is not None:
+                    output_bucket, output_prefix_path = output_target
+                    client = storage.Client(project=settings.gcp_project_id)
+                    predictions, read_reason, parsed_count = _read_prediction_outputs(
+                        client=client,
+                        bucket_name=output_bucket,
+                        prefix_path=output_prefix_path,
+                        rows=rows,
+                        poll_s=poll_s,
+                        wait_seconds=settings.vertex_batch_output_wait_seconds,
+                    )
+                    if predictions is not None:
+                        LOGGER.info(
+                            "Vertex batch prediction outputs consumed before terminal success state: job=%s state=%s",
+                            job_name,
+                            state_name,
+                        )
+                        return VertexBatchPredictionResult(
+                            predictions=predictions,
+                            reason="success",
+                            job_name=job_name,
+                            state=state_name,
+                            output_directory=output_directory,
+                        )
+                    LOGGER.warning(
+                        "Vertex batch prediction output unavailable at timeout: job=%s state=%s reason=%s",
+                        job_name,
+                        state_name,
+                        f"{read_reason} parsed={parsed_count} expected={len(rows)}",
+                    )
             try:
                 job_client.cancel_batch_prediction_job(name=job_name)
             except Exception:  # noqa: BLE001
@@ -329,12 +405,15 @@ def run_vertex_batch_prediction(
 
         output_bucket, output_prefix_path = output_target
         client = storage.Client(project=settings.gcp_project_id)
-        settle_deadline = time.monotonic() + max(0, int(settings.vertex_batch_output_wait_seconds))
-        blobs = _jsonl_prediction_blobs(client, bucket_name=output_bucket, prefix=output_prefix_path)
-        while not blobs and time.monotonic() < settle_deadline:
-            time.sleep(min(2, poll_s))
-            blobs = _jsonl_prediction_blobs(client, bucket_name=output_bucket, prefix=output_prefix_path)
-        if not blobs:
+        predictions, read_reason, parsed_count = _read_prediction_outputs(
+            client=client,
+            bucket_name=output_bucket,
+            prefix_path=output_prefix_path,
+            rows=rows,
+            poll_s=poll_s,
+            wait_seconds=settings.vertex_batch_output_wait_seconds,
+        )
+        if predictions is None and read_reason == "output_not_ready":
             LOGGER.warning(
                 "Vertex batch prediction output files not ready: job=%s output_directory=%s wait_s=%s",
                 job_name,
@@ -348,31 +427,11 @@ def run_vertex_batch_prediction(
                 state="JOB_STATE_SUCCEEDED",
                 output_directory=output_directory,
             )
-
-        predictions: dict[int, float] = {}
-        next_unkeyed_row_id = 0
-        for blob in blobs:
-            content = blob.download_as_text(encoding="utf-8")
-            for line in content.splitlines():
-                if not line.strip():
-                    continue
-                payload = json.loads(line)
-                row_id, value = _extract_prediction_record(payload)
-
-                if value is not None and row_id is None:
-                    while next_unkeyed_row_id in predictions and next_unkeyed_row_id < len(rows):
-                        next_unkeyed_row_id += 1
-                    row_id = next_unkeyed_row_id
-                    next_unkeyed_row_id += 1
-
-                if value is not None and row_id is not None and 0 <= row_id < len(rows):
-                    predictions[row_id] = value
-
-        if len(predictions) != len(rows):
+        if predictions is None and read_reason == "row_mismatch":
             LOGGER.warning(
                 "Vertex batch prediction row mismatch: expected=%s actual=%s output_prefix=%s",
                 len(rows),
-                len(predictions),
+                parsed_count,
                 output_prefix_path,
             )
             return VertexBatchPredictionResult(
@@ -383,7 +442,7 @@ def run_vertex_batch_prediction(
                 output_directory=output_directory,
             )
         return VertexBatchPredictionResult(
-            predictions=[float(predictions[idx]) for idx in range(len(rows))],
+            predictions=predictions,
             reason="success",
             job_name=job_name,
             state="JOB_STATE_SUCCEEDED",
