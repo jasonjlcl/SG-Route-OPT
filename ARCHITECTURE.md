@@ -1,6 +1,6 @@
 # SG Route Optimization Architecture
 
-This document translates the planned FYP architecture into the current codebase and records production-oriented implementation status.
+This document translates the planned FYP architecture into the current codebase and records production-oriented implementation status (updated February 22, 2026).
 
 ## 1) Layered Architecture
 
@@ -23,7 +23,7 @@ flowchart TD
     end
 
     subgraph DATA[Data Layer]
-      DB[(SQLite or Postgres later)]
+      DB[(Postgres in cloud / SQLite in local dev)]
       CACHE[(Redis + In-memory fallback)]
     end
 
@@ -49,7 +49,9 @@ flowchart TD
 sequenceDiagram
     participant Planner as Planner (UI)
     participant API as FastAPI Backend
+    participant Tasks as Cloud Tasks
     participant OneMap as OneMap APIs
+    participant Google as Google Routes API
     participant Cache as Redis/Memory Cache
     participant DB as Database
 
@@ -63,14 +65,20 @@ sequenceDiagram
     API->>DB: Save lat/lon + status
     API-->>Planner: Geocoding result + failed stops
 
-    Planner->>API: Optimize plan request
+    Planner->>API: Start async optimize job
+    API->>DB: Create QUEUED optimize job + step state
+    API->>Tasks: Enqueue GEOCODE step
+    Tasks->>API: POST /tasks/handle (OIDC)
+    API->>OneMap: Geocode unresolved stops
+    API->>DB: Save geocode updates + enqueue BUILD_MATRIX
+    Tasks->>API: POST /tasks/handle
     API->>Cache: Check OD route cache
     API->>OneMap: Fetch missing route time/distance
-    API->>Cache: Store OD + prediction cache
-    API->>API: Build ML-enhanced time matrix
+    API->>Google: Optional live-traffic ETA path
+    API->>API: ML baseline + optional uplift matrix
     API->>API: Solve VRPTW (OR-Tools)
-    API->>DB: Persist plan/routes/route_stops
-    API-->>Planner: Plan summary + feasibility
+    API->>DB: Persist plan/routes/route_stops + export refs
+    API-->>Planner: Poll/stream job status -> SUCCEEDED/FAILED
 
     Planner->>API: Fetch results + export CSV/PDF
     API-->>Planner: Map-ready route data + files
@@ -110,7 +118,7 @@ sequenceDiagram
 - Data layer
 - `backend/app/models/entities.py`
 
-## 4) Gap Closure Status (As Of February 18, 2026)
+## 4) Gap Closure Status (As Of February 22, 2026)
 
 ### A) MLOps lifecycle
 
@@ -127,14 +135,10 @@ Implemented:
   - `POST /api/v1/ml/models/train/vertex`
 
 Current production behavior:
-- Feature flags enabled in production:
-  - `FEATURE_GOOGLE_TRAFFIC=true`
-  - `FEATURE_ML_UPLIFT=true`
-  - `FEATURE_EVAL_DASHBOARD=true`
-- Google traffic optimize requests are verified in production with:
-  - `eta_source=google_traffic`
-  - non-null `traffic_timestamp`
-- Runtime fallback diagnostics now include structured `details=` payload for request-level failures.
+- Baseline training supports both local artifact mode and Vertex-integrated registration mode.
+- Model selection for prediction is rollout-driven (`active_version`, optional canary split).
+- Google traffic and ML uplift feature flags are supported in production runtime.
+- Runtime fallback diagnostics include structured `details=` payload for request-level failures.
 
 ### B) Async jobs and progress streaming
 
@@ -163,17 +167,19 @@ Implemented:
 - OneMap route failures in OD construction now fall back to heuristic estimates instead of hard-failing matrix build.
 - Google traffic departure timestamp is clamped to a near-future value for API compatibility.
 - Google request failures capture request/cause/DNS diagnostics in logs.
+- Pipeline step leases support stale-lock reclaim for Cloud Tasks redelivery safety.
+- Slow optimize and retry/failure conditions are surfaced through Phase 7 log markers for alerting.
 
 ## 5) Suggested Next Delivery Plan
 
 1. Milestone 1
-- Monitor fallback/error log rates for at least one operational cycle and alert on sustained degradation.
+- Run a short production burn-in window after threshold tuning and capture false-positive/false-negative alert notes.
 2. Milestone 2
-- Rotate and periodically validate all API secrets (OneMap + Google) with no-whitespace secret hygiene checks.
+- Automate model promotion policy (evaluation guardrails before rollout) and document rollback procedure.
 3. Milestone 3
-- Add Cloud Run startup/liveness probes and project environment tagging for stronger ops hygiene.
+- Add a lightweight release checklist that verifies domains, queue health, and ML config post-deploy.
 4. Milestone 4
-- Expand ML feedback ingestion and promotion policy automation.
+- Expand feedback ingestion coverage and formalize retention/backfill rules for training data.
 
 ## 6) Deployment View (Current Local MVP)
 
@@ -205,8 +211,10 @@ flowchart LR
     Tasks[Cloud Tasks Queue]
     Scheduler[Cloud Scheduler]
     SecretMgr[Secret Manager]
+    Monitoring[Cloud Monitoring]
     GCS[(GCS Bucket)]
-    SQLite[(SQLite in container)]
+    Postgres[(Cloud SQL Postgres)]
+    Vertex[Vertex AI Model Registry]
     OneMap[OneMap APIs]
     GoogleRoutes[Google Routes API]
 
@@ -219,8 +227,10 @@ flowchart LR
     Tasks --> CloudRun
     Scheduler --> CloudRun
     CloudRun --> SecretMgr
+    CloudRun --> Monitoring
     CloudRun --> GCS
-    CloudRun --> SQLite
+    CloudRun --> Postgres
+    CloudRun --> Vertex
     CloudRun --> OneMap
     CloudRun --> GoogleRoutes
 ```

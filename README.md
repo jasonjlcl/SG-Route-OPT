@@ -38,7 +38,7 @@ Design system files:
 - Backend: Python 3.11, FastAPI, Pydantic, SQLAlchemy, Uvicorn
 - Optimizer: OR-Tools (VRPTW + optional capacity)
 - ML: scikit-learn baseline, fallback heuristic when model missing
-- DB: SQLite (swap-ready for Postgres via `DATABASE_URL`)
+- DB: SQLite for local dev; Postgres (`DATABASE_URL`) for cloud/production
 - Cache/Queue: Redis + RQ for local async workers; Cloud Tasks for cloud async jobs (geocode/optimize/export/ML)
 - Static map rendering: Google Static Maps API (preferred) with Playwright/fallback renderer when key is absent
 - Frontend: React + Vite + TypeScript + React-Leaflet
@@ -245,7 +245,7 @@ Phase 7 signals covered:
 - signed URL failures
 - slow optimize runs (`OPTIMIZE_LATENCY_SLOW`)
 
-## Current Production Snapshot (February 18, 2026)
+## Current Production Snapshot (February 22, 2026)
 
 - Project: `gen-lang-client-0328386378`
 - Region: `asia-southeast1`
@@ -253,8 +253,8 @@ Phase 7 signals covered:
 - URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`
 - Frontend service: `sg-route-opt-web`
 - Webapp URL: `https://sg-route-opt-web-7wgewdyenq-as.a.run.app`
-- Latest API revision: `sg-route-opt-api-00028-7df`
-- Latest frontend revision: `sg-route-opt-web-00003-hp4`
+- Latest API revision: `sg-route-opt-api-00039-jw6`
+- Latest frontend revision: `sg-route-opt-web-00009-mcl`
 - Queue: `routeapp-queue`
 - Scheduler job: `route-ml-drift-weekly`
 - Custom domains:
@@ -263,17 +263,23 @@ Phase 7 signals covered:
 - Domain mapping status:
   - `app.sgroute.com` -> `True`
   - `api.sgroute.com` -> `True`
-- Health endpoint: `GET /api/v1/health` returns `200` with `env=prod` and traffic/uplift/eval feature flags
-- Probe endpoints:
-  - `GET /health/live` (liveness)
-  - `GET /health/ready` (readiness + dependency checks)
+- Health endpoint: `GET /api/v1/health` returns `200` with `env=prod` and feature flags.
+- API feature flags verified:
+  - `feature_google_traffic=true`
+  - `feature_ml_uplift=true`
+  - `feature_eval_dashboard=true`
+- ML config endpoint is live:
+  - `GET /api/v1/ml/config` includes `feature_vertex_ai` state and rollout fields.
+- Deploy script probe targets (when deployed via `infra/gcp/deploy.sh`):
+  - startup probe: `/health/ready`
+  - liveness probe: `/health/live`
 - OneMap secrets are now provisioned in Secret Manager:
   - `ONEMAP_EMAIL` (version `1`)
   - `ONEMAP_PASSWORD` (version `1`)
 - Google traffic verification:
   - `use_live_traffic=true` optimize requests return `eta_source=google_traffic`
   - `traffic_timestamp` is non-null for live-traffic plans
-  - No recent `Google ETA fallback activated` logs on revision `sg-route-opt-api-00028-7df` during smoke checks
+- Fallback diagnostics include structured `details=` payload in logs for troubleshooting.
 
 ## Operations Notes
 
@@ -520,6 +526,13 @@ Operational notes:
   - `Google resequence fallback activated (..., details=...)`
   - `Google Routes request error after retries (details=...)`
 
+ETA source/model selection order:
+
+1. If `use_live_traffic=true` and Google traffic is enabled/available, use `google_traffic`.
+2. Otherwise use baseline ML inference (`ml_baseline`) based on active/canary rollout.
+3. If uplift is enabled and artifact exists, apply uplift factor (`ml_uplift`) on top of baseline.
+4. If prediction path fails or model is unavailable, fallback to `onemap`/heuristic baseline.
+
 ### Optimize A/B Simulation (Baseline vs ML)
 
 ```bash
@@ -565,7 +578,8 @@ Capabilities:
 - Latest MAE/MAPE + drift snapshot (`GET /api/v1/ml/metrics/latest`)
 - Baseline vs ML formal evaluation (`GET /api/v1/ml/evaluation/compare`)
 - Evaluation report package generation (`POST /api/v1/ml/evaluation/run`)
-- Daily monitoring + weekly retrain-if-needed scheduler (backend startup)
+- Local/dev scheduler thread for monitoring + retrain checks
+- Cloud production scheduler via Cloud Scheduler -> `POST /api/v1/ml/drift-report`
 
 Evaluation dashboard page: `/evaluation` (requires `FEATURE_EVAL_DASHBOARD=true`)
 
