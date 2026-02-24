@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
 
@@ -15,9 +17,11 @@ from app.models import MLModel, PredictionCache, PredictionLog
 from app.services.cache import get_cache
 from app.services.ml_features import build_feature_dict, fallback_duration, feature_vector
 from app.services.ml_ops import choose_model_version_for_prediction
+from app.services.storage import download_bytes
 
 ARTIFACT_DIR = Path(__file__).resolve().parents[1] / "ml" / "artifacts"
 PredictionStrategy = Literal["auto", "model", "fallback"]
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -39,6 +43,18 @@ class MLPredictionEngine:
     def _load_model_row(self, db: Session, version: str) -> MLModel | None:
         return db.execute(select(MLModel).where(MLModel.version == version)).scalar_one_or_none()
 
+    @staticmethod
+    def _object_path_from_gcs_uri(gcs_uri: str | None) -> str | None:
+        text = str(gcs_uri or "").strip()
+        if not text.startswith("gs://"):
+            return None
+        no_scheme = text[5:]
+        if "/" not in no_scheme:
+            return None
+        _, object_path = no_scheme.split("/", 1)
+        clean = object_path.strip("/")
+        return clean or None
+
     def _load_model(self, db: Session, version: str) -> Any | None:
         if version in self._model_cache:
             return self._model_cache[version]
@@ -47,15 +63,40 @@ class MLPredictionEngine:
         if model_row is None:
             return None
 
-        model_path = Path(model_row.artifact_path)
-        if not model_path.exists():
-            model_path = ARTIFACT_DIR / f"model_{version}.joblib"
-            if not model_path.exists():
-                return None
+        candidate_paths: list[Path] = []
+        artifact_path = str(model_row.artifact_path or "").strip()
+        if artifact_path:
+            candidate_paths.append(Path(artifact_path))
+        candidate_paths.append(ARTIFACT_DIR / f"model_{version}.joblib")
+        candidate_paths.append(ARTIFACT_DIR / version / "model.pkl")
 
-        model = joblib.load(model_path)
-        self._model_cache[version] = model
-        return model
+        for path in candidate_paths:
+            if not path.exists():
+                continue
+            try:
+                model = joblib.load(path)
+                self._model_cache[version] = model
+                return model
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("Failed to load local ML model artifact for version=%s path=%s: %s", version, path, exc)
+
+        object_path = self._object_path_from_gcs_uri(model_row.artifact_gcs_uri)
+        if object_path:
+            try:
+                payload = download_bytes(object_path=object_path)
+                if payload:
+                    model = joblib.load(BytesIO(payload))
+                    self._model_cache[version] = model
+                    return model
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning(
+                    "Failed to load ML model artifact from GCS for version=%s object_path=%s: %s",
+                    version,
+                    object_path,
+                    exc,
+                )
+
+        return None
 
     def _metrics_for_version(self, db: Session, version: str) -> dict[str, Any]:
         if version in self._metrics_cache:
@@ -342,4 +383,3 @@ def get_ml_engine() -> MLPredictionEngine:
     if _engine is None:
         _engine = MLPredictionEngine()
     return _engine
-

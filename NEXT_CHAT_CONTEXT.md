@@ -500,6 +500,48 @@
    - readiness check:
      - `GET /health/ready` returned `ready=true` with `database/cloud_tasks/gcs=ready`.
 
+## NEXT CHAT START HERE (February 22, 2026)
+
+### Current Production State
+- API service: `sg-route-opt-api`
+- Latest revision: `sg-route-opt-api-00047-97v`
+- Active image: `gcr.io/gen-lang-client-0328386378/sg-route-opt-api:prod-mlfix-20260222171834`
+- Health:
+  - `GET https://api.sgroute.com/health/ready` -> `ready=true`
+  - `GET https://api.sgroute.com/api/v1/health` -> `status=ok`, `env=prod`
+- ML config:
+  - active model: `v20260222075015196509`
+  - `feature_vertex_ai=true`
+
+### What Was Fixed
+- ML fallback issue fixed for optimize flow:
+  - optimize now returns `eta_source=ml_baseline` (no longer `onemap`/`fallback_v1` by default).
+- Backend hardening shipped:
+  - Vertex batch job now has machine/replica settings and timeout guardrails.
+  - model loading can fallback from GCS artifact (`artifact_gcs_uri`) if local file missing.
+- GCS IAM added for Vertex service agents on `gs://route_app`.
+
+### Still Open
+- Async optimize currently succeeds with ML baseline, but Vertex batch override still times out in production:
+  - `vertex_batch_used=false`
+  - `vertex_reason=batch_prediction_unavailable`
+  - recent log: `Vertex batch prediction timed out ... timeout_s=120`
+
+### Suggested Immediate Next Steps
+1. Decide whether to keep Vertex batch override enabled.
+2. If yes, tune:
+   - `VERTEX_BATCH_TIMEOUT_SECONDS` (increase from `120`)
+   - machine/replica sizing (`VERTEX_BATCH_MACHINE_TYPE`, replica counts)
+   - check Vertex quotas in `asia-southeast1`.
+3. Re-run async optimize smoke and capture:
+   - `eta_source`
+   - `model_version`
+   - `vertex_batch_used`
+   - `vertex_reason`
+4. If Vertex remains slow/unreliable, add an explicit feature flag to disable batch override and keep local `ml_baseline` path as default.
+
+---
+
 ### Remaining To Close Phase 7
 1. Run remaining staging drills and capture incident evidence:
    - fallback spike signal
@@ -663,3 +705,250 @@
 - Step 1 complete.
 - Step 2 complete.
 - Step 3 complete.
+
+---
+
+## Update (February 22, 2026 - Latest Handoff Snapshot After Push)
+
+### Repo + Git State
+- Repo: `c:\Users\User\OneDrive\Documents\FYP Documents\SG-Route-OPT`
+- Branch: `main`
+- Remote: `https://github.com/jasonjlcl/SG-Route-OPT.git`
+- Latest pushed commit: `2ff5259`
+- Commit message: `feat: add scale guardrails and phase7 monitoring operations`
+- Local status at handoff: clean (`main` synced with `origin/main`)
+
+### What Is Fully Completed
+1. Phase 6 + Phase 7 code and ops changes are implemented and pushed:
+   - scale guardrails backend + frontend UX
+   - observability markers
+   - Phase 7 monitoring assets (apply script, policies, dashboard, runbook)
+   - deploy script support for monitoring apply
+2. Phase 7 staging execution is completed end-to-end:
+   - monitoring assets applied in staging
+   - all required drills executed:
+     - slow optimize
+     - stale lock reclaim
+     - fallback spikes
+     - signed URL failure
+     - Cloud Tasks retry/failure/depth
+   - incidents confirmed for each signal
+3. Threshold tuning (based on staging drill baseline) is completed and applied:
+   - queue depth: `>80 for 10m`
+   - retry delay p95: `>300000ms for 10m`
+   - failure attempt rate: `>0.05/s for 10m`
+   - fallback event rate: `>0.05/s for 10m`
+   - stale lock reclaimed: `>1 in 10m`
+   - slow optimize count: `>1 in 10m`
+
+### Current Runtime/Monitoring State (at handoff)
+- Staging service: `sg-route-opt-api-staging`
+- Staging queue: `routeapp-queue-stg`
+- Phase 7 dashboard active:
+  - `projects/858316205970/dashboards/3d4a4fb1-ba76-4213-b6e4-412073a90581`
+- Latest incident snapshot used for closure showed all required drill policies with recent alerts and closure timestamps captured in this file.
+
+### Namecheap/Domain Note
+- Custom domains mapped and routable:
+  - `https://app.sgroute.com`
+  - `https://api.sgroute.com`
+- Production health checked via custom API domain:
+  - `GET https://api.sgroute.com/api/v1/health` returned `200`
+
+### Suggested Next Actions (if continuing)
+1. Monitor staging for 24-48h with tuned thresholds and adjust only if new false positives appear.
+2. Promote tuned Phase 7 policy thresholds to production policy set (if not already intended as shared defaults).
+3. If needed, split `NEXT_CHAT_CONTEXT.md` into:
+   - concise active handoff section at top
+   - historical archive section/file for older updates.
+
+---
+
+## Update (February 22, 2026 - Production Persistence + Vertex Rollout Fixed End-to-End)
+
+### Completed In This Chat
+1. Production persistence root cause fixed (moved backend off ephemeral/local DB behavior):
+   - Enabled required GCP APIs:
+     - `sqladmin.googleapis.com`
+     - `sql-component.googleapis.com`
+   - Created Cloud SQL Postgres instance:
+     - instance: `sg-route-opt-pg`
+     - region: `asia-southeast1`
+   - Provisioned database credentials:
+     - database: `routeapp`
+     - user: `routeapp`
+   - Granted Cloud SQL access to backend runtime SA:
+     - `roles/cloudsql.client` on
+       `route-app-api-sa@gen-lang-client-0328386378.iam.gserviceaccount.com`
+   - Wired Secret Manager-backed database URL:
+     - secret: `DATABASE_URL` (latest version: `3`)
+     - corrected DSN formatting/socket path issues that initially blocked startup.
+
+2. Latest backend deployed with persistent DB wiring:
+   - image: `gcr.io/gen-lang-client-0328386378/sg-route-opt-api:prod-fix-20260222153307`
+   - live revision at validation:
+     - `sg-route-opt-api-00042-s4v` (100% traffic)
+   - service config now includes:
+     - Cloud SQL connection annotation:
+       `gen-lang-client-0328386378:asia-southeast1:sg-route-opt-pg`
+     - `DATABASE_URL` from Secret Manager.
+
+3. Database migrations executed successfully in production:
+   - migration job: `sg-route-opt-api-db-migrate`
+   - successful run:
+     - `sg-route-opt-api-db-migrate-ckww2`
+   - migration failures observed earlier were resolved by fixing args/env and DB URL.
+
+4. Vertex model retrained and rollout re-applied:
+   - actuals upload completed (`2600` rows).
+   - training job succeeded:
+     - `job_c5f7cd05ab91431da3e0170fb7f7ca79`
+   - resulting model version:
+     - `v20260222075015196509`
+   - vertex model resource:
+     - `projects/858316205970/locations/asia-southeast1/models/3553353300134854656`
+   - active rollout updated to:
+     - `v20260222075015196509`.
+
+5. Persistence across restart verified:
+   - forced new production revision rollout after model activation.
+   - confirmed model state remained present after restart:
+     - `GET /api/v1/ml/config` returns active model version set.
+     - `GET /api/v1/ml/models` returns deployed model list including active version.
+
+6. Production health/readiness checks passed post-fix:
+   - `GET /health/ready` -> `ready=true` with `database/cloud_tasks/gcs=ready`.
+   - `GET /api/v1/health` -> `status=ok`, `env=prod`, expected feature flags enabled.
+
+### Current State Summary (Latest)
+- Phase 7 staging monitoring/drills/tuning: complete.
+- Production backend persistence: fixed via Cloud SQL + Secret Manager `DATABASE_URL`.
+- Production migrations: completed.
+- Vertex retrain + rollout: completed.
+- Restart persistence verification: completed.
+
+### Pending Steps (Next Chat)
+1. Confirm Cloud SQL backup/maintenance settings (and private IP/VPC hardening if required by policy).
+2. Run one live production optimize smoke test and verify expected ML response path (`eta_source`, model usage) on real request output.
+3. Decide whether to retain temporary rollout/debug env markers (for example secret refresh or persistence-check timestamps) or clean them up.
+4. Optionally prune older `DATABASE_URL` secret versions if your secret-retention policy requires it.
+5. Update ops runbook with:
+   - production Cloud SQL instance + migration job procedure
+   - current active model version and verification commands.
+
+---
+
+## Update (February 22, 2026 - Production Hardening + Smoke Verification Pass)
+
+### Completed In This Chat
+1. Confirmed and hardened Cloud SQL production baseline:
+   - instance: `sg-route-opt-pg`
+   - backups enabled (`startTime=22:00`, retained backups `7`)
+   - maintenance window set (Sunday `03:00` UTC)
+   - deletion protection enabled
+   - connector enforcement set to `REQUIRED`
+   - effective org policy checks:
+     - `constraints/sql.restrictPublicIp` -> `False`
+     - `constraints/sql.restrictAuthorizedNetworks` -> `False`
+   - note:
+     - private IP is not enforced by current effective org policy; instance still has public IP enabled.
+
+2. Ran live production optimize smoke tests (real API traffic):
+   - uploaded and geocoded production datasets.
+   - successful optimize sample:
+     - `dataset_id=4`, `plan_id=4`, `status=SUCCESS`
+     - response `eta_source=onemap` (`use_live_traffic=false`)
+   - pipeline sample with jobs API:
+     - `job_71627af1e6ce4693a8e25fd15b95044c` -> `SUCCEEDED`
+     - `result_ref.optimize.model_version=fallback_v1`
+     - `result_ref.vertex.vertex_batch_used=false`
+     - `result_ref.vertex.reason=batch_prediction_unavailable`
+
+3. Decided cleanup for temporary rollout/debug env markers:
+   - removed from Cloud Run service `sg-route-opt-api`:
+     - `DATABASE_URL_SECRET_REFRESH_TS`
+     - `PERSISTENCE_CHECK_TS`
+   - latest revision after cleanup:
+     - `sg-route-opt-api-00044-k8w` (100% traffic)
+
+4. Optional secret pruning executed:
+   - `DATABASE_URL` versions `1` and `2` disabled.
+   - `DATABASE_URL` version `3` remains enabled and in use.
+
+5. Updated runbook docs:
+   - `README.md` now includes:
+     - production DB hardening state
+     - migration job execution/verification procedure
+     - active model version checks and smoke-test verification commands.
+
+### Current Health
+- `GET https://api.sgroute.com/health/ready` -> `ready=true`
+- `GET https://api.sgroute.com/api/v1/health` -> `status=ok`, `env=prod`
+- `GET https://api.sgroute.com/api/v1/ml/config` -> active model `v20260222075015196509`
+
+### Remaining Risk / Follow-up
+1. ML inference path is still not being used during optimize smoke runs:
+   - observed `eta_source=onemap` and `model_version=fallback_v1`.
+   - async pipeline indicates Vertex path not applied (`batch_prediction_unavailable`).
+2. Investigate Vertex batch prediction integration/runtime behavior in `backend/app/services/vertex_ai.py` and `backend/app/services/job_pipeline.py` to restore `ml_baseline` / `ml_uplift` path in production optimize flows.
+
+---
+
+## Update (February 22, 2026 - ML Fallback Fixed, Vertex Batch Guardrailed, Production Re-deployed)
+
+### Completed In This Chat
+1. Root-cause fixes implemented in backend code:
+   - `backend/app/services/vertex_ai.py`
+     - added required Vertex batch machine configuration (`machine_type`, replica counts).
+     - switched batch-job control to Vertex JobService API for stable job-name retrieval.
+     - added bounded polling timeout to prevent `BUILD_MATRIX` stalls.
+     - improved output parsing resiliency and warning logs.
+   - `backend/app/services/ml_engine.py`
+     - added robust model loading fallback from GCS (`artifact_gcs_uri`) when local artifact file is missing.
+   - `backend/app/utils/settings.py`
+     - added Vertex batch tuning settings:
+       - `VERTEX_BATCH_MACHINE_TYPE`
+       - `VERTEX_BATCH_STARTING_REPLICA_COUNT`
+       - `VERTEX_BATCH_MAX_REPLICA_COUNT`
+       - `VERTEX_BATCH_TIMEOUT_SECONDS`
+       - `VERTEX_BATCH_POLL_INTERVAL_SECONDS`
+     - added replica-count validation.
+
+2. Config/docs updated:
+   - `.sample.env` includes new Vertex batch env vars.
+   - `README.md` env documentation updated with Vertex batch settings.
+
+3. Production IAM hardening for Vertex/GCS path:
+   - granted `roles/storage.objectAdmin` on `gs://route_app` to:
+     - `service-858316205970@gcp-sa-aiplatform.iam.gserviceaccount.com`
+     - `service-858316205970@gcp-sa-aiplatform-cc.iam.gserviceaccount.com`
+
+4. Production deploys performed (latest active):
+   - Cloud Run service `sg-route-opt-api` revision:
+     - `sg-route-opt-api-00047-97v`
+   - active image:
+     - `gcr.io/gen-lang-client-0328386378/sg-route-opt-api:prod-mlfix-20260222171834`
+   - migration job image updated to same tag:
+     - `sg-route-opt-api-db-migrate`
+
+5. Verification results (production):
+   - readiness:
+     - `GET /health/ready` -> `ready=true`
+   - sync optimize smoke:
+     - `eta_source=ml_baseline` (no longer `onemap`)
+   - async optimize smoke (`job_7a3431b0a7f14d9fb870a86d0628bf82`):
+     - `status=SUCCEEDED`
+     - `eta_source=ml_baseline`
+     - `model_version=v20260222075015196509`
+     - `vertex_batch_used=false`
+     - `vertex_reason=batch_prediction_unavailable`
+
+### Current Status
+- Critical issue fixed: production optimize no longer drops to `fallback_v1`/`onemap` by default; ML baseline path is active again.
+- Vertex batch override is still not completing within timeout in production; code now fails fast and preserves local ML baseline path instead of hanging pipeline.
+
+### Remaining Follow-up (Optional)
+1. Tune Vertex batch capacity/timeout if you want `vertex_batch_used=true` in async matrix build:
+   - increase `VERTEX_BATCH_TIMEOUT_SECONDS`
+   - evaluate machine/replica sizing and project quotas.
+2. Decide whether to keep Vertex batch enabled in async optimize or gate it behind an explicit feature flag.
