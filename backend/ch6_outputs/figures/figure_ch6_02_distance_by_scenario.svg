@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+<title>Route Distance by Scenario</title>
+<rect x="0" y="0" width="1280" height="800" fill="#F6F1E8" rx="0" ry="0" />
+<text x="80" y="70" font-family="Georgia" font-size="34" font-weight="700" fill="#182026" text-anchor="start">Route Distance by Scenario</text>
+<text x="80" y="104" font-family="Arial" font-size="18" font-weight="400" fill="#41505A" text-anchor="start">Total route distance stayed flat after calibration while the initial local ML artifact inflated the route plans.</text>
+<line x1="80" y1="124" x2="1200" y2="124" stroke="#BDB6A8" stroke-width="2" />
+<rect x="620" y="80" width="18" height="18" fill="#0F4C5C" rx="4" ry="4" />
+<text x="648" y="94" font-family="Arial" font-size="16" font-weight="400" fill="#33434D" text-anchor="start">Fallback baseline</text>
+<rect x="790" y="80" width="18" height="18" fill="#C8553D" rx="4" ry="4" />
+<text x="818" y="94" font-family="Arial" font-size="16" font-weight="400" fill="#33434D" text-anchor="start">Initial local ML</text>
+<rect x="960" y="80" width="18" height="18" fill="#3A7D44" rx="4" ry="4" />
+<text x="988" y="94" font-family="Arial" font-size="16" font-weight="400" fill="#33434D" text-anchor="start">Calibrated ML</text>
+<line x1="100" y1="640.0" x2="1180" y2="640.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="646.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">0</text>
+<line x1="100" y1="546.0" x2="1180" y2="546.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="552.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">3,000</text>
+<line x1="100" y1="452.0" x2="1180" y2="452.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="458.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">6,000</text>
+<line x1="100" y1="358.0" x2="1180" y2="358.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="364.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">9,000</text>
+<line x1="100" y1="264.0" x2="1180" y2="264.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="270.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">12,000</text>
+<line x1="100" y1="170.0" x2="1180" y2="170.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="176.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">15,000</text>
+<line x1="100" y1="170" x2="100" y2="640" stroke="#7B7F82" stroke-width="2" />
+<line x1="100" y1="640" x2="1180" y2="640" stroke="#7B7F82" stroke-width="2" />
+<text x="42" y="410" font-family="Arial" font-size="16" font-weight="400" fill="#54636C" text-anchor="start">Distance (m)</text>
+<text x="208.0" y="676" font-family="Arial" font-size="16" font-weight="700" fill="#182026" text-anchor="middle">S1</text>
+<text x="208.0" y="698" font-family="Arial" font-size="13" font-weight="400" fill="#54636C" text-anchor="middle">Nominal</text>
+<rect x="138.01600000000002" y="422.66886666666664" width="38.879999999999995" height="217.33113333333336" fill="#0F4C5C" rx="6" ry="6" />
+<text x="157.45600000000002" y="412.66886666666664" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">6,936</text>
+<rect x="188.56" y="246.91268000000002" width="38.879999999999995" height="393.08732" fill="#C8553D" rx="6" ry="6" />
+<text x="208.0" y="236.91268000000002" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">12,545</text>
+<rect x="239.10399999999998" y="422.66886666666664" width="38.879999999999995" height="217.33113333333336" fill="#3A7D44" rx="6" ry="6" />
+<text x="258.544" y="412.66886666666664" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">6,936</text>
+<text x="424.0" y="676" font-family="Arial" font-size="16" font-weight="700" fill="#182026" text-anchor="middle">S2</text>
+<text x="424.0" y="698" font-family="Arial" font-size="13" font-weight="400" fill="#54636C" text-anchor="middle">Single vehicle</text>
+<rect x="354.016" y="422.66886666666664" width="38.879999999999995" height="217.33113333333336" fill="#0F4C5C" rx="6" ry="6" />
+<text x="373.456" y="412.66886666666664" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">6,936</text>
+<rect x="404.56" y="246.91268000000002" width="38.879999999999995" height="393.08732" fill="#C8553D" rx="6" ry="6" />
+<text x="424.0" y="236.91268000000002" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">12,545</text>
+<rect x="455.104" y="422.66886666666664" width="38.879999999999995" height="217.33113333333336" fill="#3A7D44" rx="6" ry="6" />
+<text x="474.544" y="412.66886666666664" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">6,936</text>
+<text x="640.0" y="676" font-family="Arial" font-size="16" font-weight="700" fill="#182026" text-anchor="middle">S3</text>
+<text x="640.0" y="698" font-family="Arial" font-size="13" font-weight="400" fill="#54636C" text-anchor="middle">Tight capacity</text>
+<rect x="570.0160000000001" y="377.96591333333333" width="38.879999999999995" height="262.03408666666667" fill="#0F4C5C" rx="6" ry="6" />
+<text x="589.4560000000001" y="367.96591333333333" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">8,363</text>
+<rect x="620.56" y="204.38269333333335" width="38.879999999999995" height="435.61730666666665" fill="#C8553D" rx="6" ry="6" />
+<text x="640.0" y="194.38269333333335" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">13,903</text>
+<rect x="671.104" y="377.96591333333333" width="38.879999999999995" height="262.03408666666667" fill="#3A7D44" rx="6" ry="6" />
+<text x="690.5440000000001" y="367.96591333333333" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">8,363</text>
+<text x="856.0" y="676" font-family="Arial" font-size="16" font-weight="700" fill="#182026" text-anchor="middle">S4</text>
+<text x="856.0" y="698" font-family="Arial" font-size="13" font-weight="400" fill="#54636C" text-anchor="middle">Shorter workday</text>
+<rect x="786.0160000000001" y="422.66886666666664" width="38.879999999999995" height="217.33113333333336" fill="#0F4C5C" rx="6" ry="6" />
+<text x="805.4560000000001" y="412.66886666666664" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">6,936</text>
+<rect x="836.56" y="246.91268000000002" width="38.879999999999995" height="393.08732" fill="#C8553D" rx="6" ry="6" />
+<text x="856.0" y="236.91268000000002" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">12,545</text>
+<rect x="887.104" y="422.66886666666664" width="38.879999999999995" height="217.33113333333336" fill="#3A7D44" rx="6" ry="6" />
+<text x="906.5440000000001" y="412.66886666666664" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">6,936</text>
+<text x="1072.0" y="676" font-family="Arial" font-size="16" font-weight="700" fill="#182026" text-anchor="middle">S5</text>
+<text x="1072.0" y="698" font-family="Arial" font-size="13" font-weight="400" fill="#54636C" text-anchor="middle">No-drop</text>
+<rect x="1002.0160000000001" y="422.66886666666664" width="38.879999999999995" height="217.33113333333336" fill="#0F4C5C" rx="6" ry="6" />
+<text x="1021.4560000000001" y="412.66886666666664" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">6,936</text>
+<rect x="1052.56" y="246.91268000000002" width="38.879999999999995" height="393.08732" fill="#C8553D" rx="6" ry="6" />
+<text x="1072.0" y="236.91268000000002" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">12,545</text>
+<rect x="1103.104" y="422.66886666666664" width="38.879999999999995" height="217.33113333333336" fill="#3A7D44" rx="6" ry="6" />
+<text x="1122.544" y="412.66886666666664" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">6,936</text>
+</svg>

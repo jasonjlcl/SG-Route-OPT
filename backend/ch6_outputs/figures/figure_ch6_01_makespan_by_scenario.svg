@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+<title>Route Makespan by Scenario</title>
+<rect x="0" y="0" width="1280" height="800" fill="#F6F1E8" rx="0" ry="0" />
+<text x="80" y="70" font-family="Georgia" font-size="34" font-weight="700" fill="#182026" text-anchor="start">Route Makespan by Scenario</text>
+<text x="80" y="104" font-family="Arial" font-size="18" font-weight="400" fill="#41505A" text-anchor="start">Dataset 3 local reruns comparing fallback baseline, initial local ML artifact, and calibrated local model.</text>
+<line x1="80" y1="124" x2="1200" y2="124" stroke="#BDB6A8" stroke-width="2" />
+<rect x="620" y="80" width="18" height="18" fill="#0F4C5C" rx="4" ry="4" />
+<text x="648" y="94" font-family="Arial" font-size="16" font-weight="400" fill="#33434D" text-anchor="start">Fallback baseline</text>
+<rect x="790" y="80" width="18" height="18" fill="#C8553D" rx="4" ry="4" />
+<text x="818" y="94" font-family="Arial" font-size="16" font-weight="400" fill="#33434D" text-anchor="start">Initial local ML</text>
+<rect x="960" y="80" width="18" height="18" fill="#3A7D44" rx="4" ry="4" />
+<text x="988" y="94" font-family="Arial" font-size="16" font-weight="400" fill="#33434D" text-anchor="start">Calibrated ML</text>
+<line x1="100" y1="640.0" x2="1180" y2="640.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="646.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">0</text>
+<line x1="100" y1="546.0" x2="1180" y2="546.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="552.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">6,000</text>
+<line x1="100" y1="452.0" x2="1180" y2="452.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="458.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">12,000</text>
+<line x1="100" y1="358.0" x2="1180" y2="358.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="364.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">18,000</text>
+<line x1="100" y1="264.0" x2="1180" y2="264.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="270.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">24,000</text>
+<line x1="100" y1="170.0" x2="1180" y2="170.0" stroke="#D6D1C7" stroke-width="1" />
+<text x="86" y="176.0" font-family="Arial" font-size="15" font-weight="400" fill="#54636C" text-anchor="end">30,000</text>
+<line x1="100" y1="170" x2="100" y2="640" stroke="#7B7F82" stroke-width="2" />
+<line x1="100" y1="640" x2="1180" y2="640" stroke="#7B7F82" stroke-width="2" />
+<text x="42" y="410" font-family="Arial" font-size="16" font-weight="400" fill="#54636C" text-anchor="start">Makespan (s)</text>
+<text x="208.0" y="676" font-family="Arial" font-size="16" font-weight="700" fill="#182026" text-anchor="middle">S1</text>
+<text x="208.0" y="698" font-family="Arial" font-size="13" font-weight="400" fill="#54636C" text-anchor="middle">Nominal</text>
+<rect x="138.01600000000002" y="392.8113333333333" width="38.879999999999995" height="247.18866666666668" fill="#0F4C5C" rx="6" ry="6" />
+<text x="157.45600000000002" y="382.8113333333333" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">15,778</text>
+<rect x="188.56" y="238.46333333333337" width="38.879999999999995" height="401.53666666666663" fill="#C8553D" rx="6" ry="6" />
+<text x="208.0" y="228.46333333333337" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">25,630</text>
+<rect x="239.10399999999998" y="394.12733333333335" width="38.879999999999995" height="245.87266666666667" fill="#3A7D44" rx="6" ry="6" />
+<text x="258.544" y="384.12733333333335" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">15,694</text>
+<text x="424.0" y="676" font-family="Arial" font-size="16" font-weight="700" fill="#182026" text-anchor="middle">S2</text>
+<text x="424.0" y="698" font-family="Arial" font-size="13" font-weight="400" fill="#54636C" text-anchor="middle">Single vehicle</text>
+<rect x="354.016" y="392.8113333333333" width="38.879999999999995" height="247.18866666666668" fill="#0F4C5C" rx="6" ry="6" />
+<text x="373.456" y="382.8113333333333" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">15,778</text>
+<rect x="404.56" y="238.46333333333337" width="38.879999999999995" height="401.53666666666663" fill="#C8553D" rx="6" ry="6" />
+<text x="424.0" y="228.46333333333337" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">25,630</text>
+<rect x="455.104" y="394.12733333333335" width="38.879999999999995" height="245.87266666666667" fill="#3A7D44" rx="6" ry="6" />
+<text x="474.544" y="384.12733333333335" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">15,694</text>
+<text x="640.0" y="676" font-family="Arial" font-size="16" font-weight="700" fill="#182026" text-anchor="middle">S3</text>
+<text x="640.0" y="698" font-family="Arial" font-size="13" font-weight="400" fill="#54636C" text-anchor="middle">Tight capacity</text>
+<rect x="570.0160000000001" y="416.46799999999996" width="38.879999999999995" height="223.532" fill="#0F4C5C" rx="6" ry="6" />
+<text x="589.4560000000001" y="406.46799999999996" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">14,268</text>
+<rect x="620.56" y="319.742" width="38.879999999999995" height="320.258" fill="#C8553D" rx="6" ry="6" />
+<text x="640.0" y="309.742" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">20,442</text>
+<rect x="671.104" y="417.20433333333335" width="38.879999999999995" height="222.79566666666665" fill="#3A7D44" rx="6" ry="6" />
+<text x="690.5440000000001" y="407.20433333333335" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">14,221</text>
+<text x="856.0" y="676" font-family="Arial" font-size="16" font-weight="700" fill="#182026" text-anchor="middle">S4</text>
+<text x="856.0" y="698" font-family="Arial" font-size="13" font-weight="400" fill="#54636C" text-anchor="middle">Shorter workday</text>
+<rect x="786.0160000000001" y="449.21133333333336" width="38.879999999999995" height="190.78866666666664" fill="#0F4C5C" rx="6" ry="6" />
+<text x="805.4560000000001" y="439.21133333333336" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">12,178</text>
+<rect x="836.56" y="294.70666666666665" width="38.879999999999995" height="345.29333333333335" fill="#C8553D" rx="6" ry="6" />
+<text x="856.0" y="284.70666666666665" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">22,040</text>
+<rect x="887.104" y="450.52733333333333" width="38.879999999999995" height="189.47266666666667" fill="#3A7D44" rx="6" ry="6" />
+<text x="906.5440000000001" y="440.52733333333333" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">12,094</text>
+<text x="1072.0" y="676" font-family="Arial" font-size="16" font-weight="700" fill="#182026" text-anchor="middle">S5</text>
+<text x="1072.0" y="698" font-family="Arial" font-size="13" font-weight="400" fill="#54636C" text-anchor="middle">No-drop</text>
+<rect x="1002.0160000000001" y="392.8113333333333" width="38.879999999999995" height="247.18866666666668" fill="#0F4C5C" rx="6" ry="6" />
+<text x="1021.4560000000001" y="382.8113333333333" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">15,778</text>
+<rect x="1052.56" y="238.46333333333337" width="38.879999999999995" height="401.53666666666663" fill="#C8553D" rx="6" ry="6" />
+<text x="1072.0" y="228.46333333333337" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">25,630</text>
+<rect x="1103.104" y="394.12733333333335" width="38.879999999999995" height="245.87266666666667" fill="#3A7D44" rx="6" ry="6" />
+<text x="1122.544" y="384.12733333333335" font-family="Arial" font-size="13" font-weight="400" fill="#33434D" text-anchor="middle">15,694</text>
+</svg>
