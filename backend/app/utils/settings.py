@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,7 +21,7 @@ class Settings(BaseSettings):
     onemap_password: str | None = Field(default=None, alias="ONEMAP_PASSWORD")
 
     max_upload_mb: int = Field(default=10, alias="MAX_UPLOAD_MB")
-    allowed_origins: str = Field(default="http://localhost:5173", alias="ALLOWED_ORIGINS")
+    allowed_origins: str = Field(default="http://localhost:5173,http://127.0.0.1:5173", alias="ALLOWED_ORIGINS")
 
     onemap_auth_url: str = Field(default="https://www.onemap.gov.sg/api/auth/post/getToken", alias="ONEMAP_AUTH_URL")
     onemap_search_url: str = Field(default="https://www.onemap.gov.sg/api/common/elastic/search", alias="ONEMAP_SEARCH_URL")
@@ -116,7 +117,29 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        return [item.strip() for item in self.allowed_origins.split(",") if item.strip()]
+        values = [item.strip().rstrip("/") for item in self.allowed_origins.split(",") if item.strip()]
+        frontend_base_url = str(self.frontend_base_url or "").strip().rstrip("/")
+        if frontend_base_url:
+            values.append(frontend_base_url)
+
+        deduped: list[str] = []
+        for item in values:
+            if item and item not in deduped:
+                deduped.append(item)
+
+        expanded = list(deduped)
+        for item in deduped:
+            try:
+                parts = urlsplit(item)
+            except Exception:  # noqa: BLE001
+                continue
+            if parts.hostname not in {"localhost", "127.0.0.1"}:
+                continue
+            sibling_host = "127.0.0.1" if parts.hostname == "localhost" else "localhost"
+            sibling = urlunsplit((parts.scheme, f"{sibling_host}:{parts.port}" if parts.port else sibling_host, "", "", ""))
+            if sibling not in expanded:
+                expanded.append(sibling)
+        return expanded
 
     @property
     def resolved_google_routes_api_key(self) -> str | None:

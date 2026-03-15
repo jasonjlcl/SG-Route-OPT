@@ -1,7 +1,30 @@
 import axios from "axios";
 import type { DatasetSummary, EvaluationPredictionMetrics, HealthStatus, JobAccepted, JobStatus, PlanDetails, StopItem, UploadResponse } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+type LocationLike = {
+  origin: string;
+};
+
+export function resolveApiBase(explicitBase?: string, location?: LocationLike): string {
+  const configured = (explicitBase ?? "").trim();
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  const origin = (location?.origin ?? "").trim();
+  if (origin) {
+    const url = new URL(origin);
+    url.port = "8000";
+    return url.origin;
+  }
+
+  return "http://localhost:8000";
+}
+
+export const API_BASE = resolveApiBase(
+  import.meta.env.VITE_API_BASE_URL,
+  typeof window !== "undefined" ? window.location : undefined
+);
 
 const api = axios.create({
   baseURL: API_BASE,

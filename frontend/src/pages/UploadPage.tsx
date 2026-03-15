@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { getValidationErrorLogUrl, uploadDataset } from "../api";
+import { API_BASE, getValidationErrorLogUrl, uploadDataset } from "../api";
 import { useWorkflowContext } from "../components/layout/WorkflowContext";
 import { ErrorState } from "../components/status/ErrorState";
 import { LoadingState } from "../components/status/LoadingState";
@@ -16,6 +16,17 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../com
 import type { UploadResponse } from "../types";
 
 const TEMPLATE_CONTENT = `stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end,phone,contact_name\nS1,10 Bayfront Avenue,,1,5,09:00,12:00,+65 81234567,Jason Tan\nS2,1 Raffles Place,,2,8,10:00,15:30,,\nS3,,768024,1,6,09:30,16:00,91234567,Ops Desk\n`;
+
+function getUploadErrorMessage(err: any): string {
+  const backendMessage = err?.response?.data?.message;
+  if (backendMessage) {
+    return backendMessage;
+  }
+  if (!err?.response) {
+    return `Could not reach the backend API at ${API_BASE}. Check that the backend is running and that the frontend/backend hosts match.`;
+  }
+  return "Upload failed. Check template format and required columns.";
+}
 
 export function UploadPage() {
   const navigate = useNavigate();
@@ -64,10 +75,10 @@ export function UploadPage() {
         navigate("/geocoding");
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? "Upload failed. Check template format and required columns.";
+      const msg = getUploadErrorMessage(err);
       setError(msg);
       toast.error("Upload failed", {
-        description: "Review file structure and try again.",
+        description: err?.response ? "Review file structure and try again." : "Check backend connectivity and try again.",
       });
     } finally {
       setLoading(false);

@@ -2,6 +2,7 @@ import time
 import logging
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -17,6 +18,23 @@ if IS_SQLITE:
 else:
     connect_args = {}
 engine = create_engine(settings.database_url, connect_args=connect_args, future=True)
+
+SQLITE_COMPAT_COLUMNS: dict[str, dict[str, str]] = {
+    "jobs": {
+        "progress_pct": "INTEGER NOT NULL DEFAULT 0",
+        "current_step": "VARCHAR(64)",
+        "message": "VARCHAR(512)",
+        "error_code": "VARCHAR(128)",
+        "error_detail": "TEXT",
+        "steps_json": "TEXT",
+        "result_ref": "TEXT",
+    },
+    "plans": {
+        "eta_source": "VARCHAR(32)",
+        "traffic_timestamp_iso": "VARCHAR(64)",
+        "live_traffic_requested": "BOOLEAN NOT NULL DEFAULT 0",
+    },
+}
 
 
 class RetrySession(Session):
@@ -57,6 +75,35 @@ if IS_SQLITE:
             cursor.execute("PRAGMA busy_timeout=30000")
         finally:
             cursor.close()
+
+
+def ensure_sqlite_schema_compatibility(target_engine: Engine) -> None:
+    if target_engine.dialect.name != "sqlite":
+        return
+
+    with target_engine.begin() as conn:
+        tables = {
+            str(row[0])
+            for row in conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'").all()
+            if row and row[0]
+        }
+        for table_name, expected_columns in SQLITE_COMPAT_COLUMNS.items():
+            if table_name not in tables:
+                continue
+
+            existing_columns = {
+                str(row["name"])
+                for row in conn.exec_driver_sql(f'PRAGMA table_info("{table_name}")').mappings().all()
+                if row.get("name")
+            }
+            for column_name, column_sql in expected_columns.items():
+                if column_name in existing_columns:
+                    continue
+                LOGGER.warning("Adding missing SQLite compatibility column %s.%s", table_name, column_name)
+                conn.exec_driver_sql(f'ALTER TABLE "{table_name}" ADD COLUMN "{column_name}" {column_sql}')
+
+
+ensure_sqlite_schema_compatibility(engine)
 
 
 def get_db() -> Session:
