@@ -1,0 +1,3891 @@
+{
+  "summary": {
+    "scenario_summary": [
+      {
+        "scenario_id": "S1",
+        "label": "Nominal",
+        "dataset_count": 10,
+        "initial_mean_makespan_improvement_pct": 1.7809549823908728,
+        "initial_positive_count": 4,
+        "initial_non_positive_count": 6,
+        "calibrated_mean_makespan_improvement_pct": 5.498539678422363,
+        "calibrated_positive_count": 10,
+        "calibrated_non_positive_count": 0,
+        "initial_mean_distance_improvement_pct": -14.838833061990735,
+        "calibrated_mean_distance_improvement_pct": -14.711719612680888
+      }
+    ],
+    "nominal_summary": [
+      {
+        "file_name": "stops_experiment_1.csv",
+        "dataset_id": 8,
+        "baseline_makespan_s": 15366.0,
+        "initial_makespan_improvement_pct": 11.134973317714435,
+        "calibrated_makespan_improvement_pct": 10.900689834699987,
+        "baseline_distance_m": 99616.0,
+        "initial_distance_improvement_pct": -12.807179569547062,
+        "calibrated_distance_improvement_pct": -23.36371667202056
+      },
+      {
+        "file_name": "stops_experiment_2.csv",
+        "dataset_id": 9,
+        "baseline_makespan_s": 18037.0,
+        "initial_makespan_improvement_pct": -3.409657925375617,
+        "calibrated_makespan_improvement_pct": 1.391583966291512,
+        "baseline_distance_m": 86779.0,
+        "initial_distance_improvement_pct": -23.29250164210235,
+        "calibrated_distance_improvement_pct": -23.29250164210235
+      },
+      {
+        "file_name": "stops_experiment_3.csv",
+        "dataset_id": 10,
+        "baseline_makespan_s": 23471.0,
+        "initial_makespan_improvement_pct": 5.6921307144987425,
+        "calibrated_makespan_improvement_pct": 2.518000937326914,
+        "baseline_distance_m": 110601.0,
+        "initial_distance_improvement_pct": -3.4484317501650077,
+        "calibrated_distance_improvement_pct": -24.92111282899793
+      },
+      {
+        "file_name": "stops_experiment_4.csv",
+        "dataset_id": 11,
+        "baseline_makespan_s": 24357.0,
+        "initial_makespan_improvement_pct": -2.7876996346019625,
+        "calibrated_makespan_improvement_pct": 2.516730303403539,
+        "baseline_distance_m": 79829.0,
+        "initial_distance_improvement_pct": -8.589610291999149,
+        "calibrated_distance_improvement_pct": 4.289168096806925
+      },
+      {
+        "file_name": "stops_experiment_5.csv",
+        "dataset_id": 12,
+        "baseline_makespan_s": 29042.0,
+        "initial_makespan_improvement_pct": -5.605674540320915,
+        "calibrated_makespan_improvement_pct": 1.8559327869981406,
+        "baseline_distance_m": 95541.0,
+        "initial_distance_improvement_pct": -25.21221255795941,
+        "calibrated_distance_improvement_pct": -52.399493411205654
+      },
+      {
+        "file_name": "stops_experiment_6.csv",
+        "dataset_id": 13,
+        "baseline_makespan_s": 15632.0,
+        "initial_makespan_improvement_pct": 11.617195496417605,
+        "calibrated_makespan_improvement_pct": 17.195496417604915,
+        "baseline_distance_m": 83052.0,
+        "initial_distance_improvement_pct": 0.0,
+        "calibrated_distance_improvement_pct": -6.2165871983817365
+      },
+      {
+        "file_name": "stops_experiment_7.csv",
+        "dataset_id": 14,
+        "baseline_makespan_s": 19473.0,
+        "initial_makespan_improvement_pct": 11.205258563138704,
+        "calibrated_makespan_improvement_pct": 10.399014019411492,
+        "baseline_distance_m": 76735.0,
+        "initial_distance_improvement_pct": -31.419821463478204,
+        "calibrated_distance_improvement_pct": -11.994526617579982
+      },
+      {
+        "file_name": "stops_experiment_8.csv",
+        "dataset_id": 15,
+        "baseline_makespan_s": 21252.0,
+        "initial_makespan_improvement_pct": -3.383210991906644,
+        "calibrated_makespan_improvement_pct": 2.2680218332392243,
+        "baseline_distance_m": 50377.0,
+        "initial_distance_improvement_pct": -0.47839291740278306,
+        "calibrated_distance_improvement_pct": -9.21452250034738
+      },
+      {
+        "file_name": "stops_experiment_9.csv",
+        "dataset_id": 16,
+        "baseline_makespan_s": 25007.0,
+        "initial_makespan_improvement_pct": -2.2553684968208905,
+        "calibrated_makespan_improvement_pct": 2.955172551685528,
+        "baseline_distance_m": 29267.0,
+        "initial_distance_improvement_pct": -30.918782246215876,
+        "calibrated_distance_improvement_pct": 0.0
+      },
+      {
+        "file_name": "stops_experiment_10.csv",
+        "dataset_id": 17,
+        "baseline_makespan_s": 27942.0,
+        "initial_makespan_improvement_pct": -4.398396678834729,
+        "calibrated_makespan_improvement_pct": 2.984754133562379,
+        "baseline_distance_m": 25619.0,
+        "initial_distance_improvement_pct": -12.221398181037511,
+        "calibrated_distance_improvement_pct": -0.00390335298021
+      }
+    ]
+  },
+  "raw": {
+    "generated_at": "2026-03-15",
+    "base_db": "backend\\ch6_retrain_eval.db",
+    "work_db": "backend\\ch6_experiments_10_eval.db",
+    "solver_time_limit_s": 8,
+    "scenario_ids": [
+      "S1"
+    ],
+    "geocode_mock_mode": false,
+    "dataset_runs": [
+      {
+        "file_name": "stops_experiment_1.csv",
+        "dataset_id": 8,
+        "stop_count": 8,
+        "total_demand": 15,
+        "total_service_min": 53,
+        "geocode_success_count": 8,
+        "geocode_failed_count": 0,
+        "geocode_sources": {
+          "onemap": 8
+        }
+      },
+      {
+        "file_name": "stops_experiment_2.csv",
+        "dataset_id": 9,
+        "stop_count": 8,
+        "total_demand": 15,
+        "total_service_min": 53,
+        "geocode_success_count": 8,
+        "geocode_failed_count": 0,
+        "geocode_sources": {
+          "manual_search": 2,
+          "onemap": 6
+        }
+      },
+      {
+        "file_name": "stops_experiment_3.csv",
+        "dataset_id": 10,
+        "stop_count": 8,
+        "total_demand": 15,
+        "total_service_min": 53,
+        "geocode_success_count": 8,
+        "geocode_failed_count": 0,
+        "geocode_sources": {
+          "onemap": 8
+        }
+      },
+      {
+        "file_name": "stops_experiment_4.csv",
+        "dataset_id": 11,
+        "stop_count": 8,
+        "total_demand": 15,
+        "total_service_min": 53,
+        "geocode_success_count": 8,
+        "geocode_failed_count": 0,
+        "geocode_sources": {
+          "manual_search": 2,
+          "onemap": 6
+        }
+      },
+      {
+        "file_name": "stops_experiment_5.csv",
+        "dataset_id": 12,
+        "stop_count": 8,
+        "total_demand": 15,
+        "total_service_min": 53,
+        "geocode_success_count": 8,
+        "geocode_failed_count": 0,
+        "geocode_sources": {
+          "manual_search": 1,
+          "onemap": 7
+        }
+      },
+      {
+        "file_name": "stops_experiment_6.csv",
+        "dataset_id": 13,
+        "stop_count": 8,
+        "total_demand": 15,
+        "total_service_min": 53,
+        "geocode_success_count": 8,
+        "geocode_failed_count": 0,
+        "geocode_sources": {
+          "manual_search": 1,
+          "onemap": 7
+        }
+      },
+      {
+        "file_name": "stops_experiment_7.csv",
+        "dataset_id": 14,
+        "stop_count": 8,
+        "total_demand": 15,
+        "total_service_min": 53,
+        "geocode_success_count": 8,
+        "geocode_failed_count": 0,
+        "geocode_sources": {
+          "manual_search": 1,
+          "onemap": 7
+        }
+      },
+      {
+        "file_name": "stops_experiment_8.csv",
+        "dataset_id": 15,
+        "stop_count": 8,
+        "total_demand": 15,
+        "total_service_min": 53,
+        "geocode_success_count": 7,
+        "geocode_failed_count": 1,
+        "geocode_sources": {
+          "onemap": 7,
+          "unknown": 1
+        }
+      },
+      {
+        "file_name": "stops_experiment_9.csv",
+        "dataset_id": 16,
+        "stop_count": 8,
+        "total_demand": 15,
+        "total_service_min": 53,
+        "geocode_success_count": 8,
+        "geocode_failed_count": 0,
+        "geocode_sources": {
+          "onemap": 8
+        }
+      },
+      {
+        "file_name": "stops_experiment_10.csv",
+        "dataset_id": 17,
+        "stop_count": 7,
+        "total_demand": 13,
+        "total_service_min": 46,
+        "geocode_success_count": 7,
+        "geocode_failed_count": 0,
+        "geocode_sources": {
+          "onemap": 7
+        }
+      }
+    ],
+    "scenario_results": [
+      {
+        "file_name": "stops_experiment_1.csv",
+        "dataset_id": 8,
+        "scenario": {
+          "id": "S1",
+          "label": "Nominal",
+          "num_vehicles": 2,
+          "capacity": 20,
+          "workday_start": "08:00",
+          "workday_end": "18:00",
+          "allow_drop_visits": true
+        },
+        "baseline_version": "fallback_v1",
+        "routing_note": "authenticated_onemap_routing_enabled",
+        "initial_model": {
+          "version": "v20260315045420274714",
+          "report": {
+            "generated_at": "2026-03-15T09:28:15.180953",
+            "dataset_id": 8,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315045420274714",
+            "baseline": {
+              "feasible": true,
+              "objective": 15366,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 99616.0,
+              "makespan_s": 15366.0,
+              "sum_vehicle_duration_s": 15366.0,
+              "avg_waiting_s": 0.0,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 15366,
+                  "travel_time_s": 12186,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 11567,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 112374.0,
+              "makespan_s": 13655.0,
+              "sum_vehicle_duration_s": 13655.0,
+              "avg_waiting_s": 261.0,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 13655,
+                  "travel_time_s": 8387,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 2088
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 15366.0,
+                "ml": 13655.0,
+                "improvement_pct": 11.134973317714435
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 15366.0,
+                "ml": 13655.0,
+                "improvement_pct": 11.134973317714435
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 99616.0,
+                "ml": 112374.0,
+                "improvement_pct": -12.807179569547062
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 15366.0,
+              "ml": 13655.0,
+              "improvement_pct": 11.134973317714435
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 99616.0,
+              "ml": 112374.0,
+              "improvement_pct": -12.807179569547062
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 15366.0,
+              "ml": 13655.0,
+              "improvement_pct": 11.134973317714435
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        },
+        "calibrated_model": {
+          "version": "v20260315063821017757",
+          "report": {
+            "generated_at": "2026-03-15T09:28:31.570131",
+            "dataset_id": 8,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315063821017757",
+            "baseline": {
+              "feasible": true,
+              "objective": 15366,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 99616.0,
+              "makespan_s": 15366.0,
+              "sum_vehicle_duration_s": 15366.0,
+              "avg_waiting_s": 0.0,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 15366,
+                  "travel_time_s": 12186,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 9147,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 122890.0,
+              "makespan_s": 13691.0,
+              "sum_vehicle_duration_s": 13691.0,
+              "avg_waiting_s": 568.0,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 13691,
+                  "travel_time_s": 5967,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 4544
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 15366.0,
+                "ml": 13691.0,
+                "improvement_pct": 10.900689834699987
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 15366.0,
+                "ml": 13691.0,
+                "improvement_pct": 10.900689834699987
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 99616.0,
+                "ml": 122890.0,
+                "improvement_pct": -23.36371667202056
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 15366.0,
+              "ml": 13691.0,
+              "improvement_pct": 10.900689834699987
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 99616.0,
+              "ml": 122890.0,
+              "improvement_pct": -23.36371667202056
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 15366.0,
+              "ml": 13691.0,
+              "improvement_pct": 10.900689834699987
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        }
+      },
+      {
+        "file_name": "stops_experiment_2.csv",
+        "dataset_id": 9,
+        "scenario": {
+          "id": "S1",
+          "label": "Nominal",
+          "num_vehicles": 2,
+          "capacity": 20,
+          "workday_start": "08:00",
+          "workday_end": "18:00",
+          "allow_drop_visits": true
+        },
+        "baseline_version": "fallback_v1",
+        "routing_note": "authenticated_onemap_routing_enabled",
+        "initial_model": {
+          "version": "v20260315045420274714",
+          "report": {
+            "generated_at": "2026-03-15T09:29:12.975714",
+            "dataset_id": 9,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315045420274714",
+            "baseline": {
+              "feasible": true,
+              "objective": 14483,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 86779.0,
+              "makespan_s": 18037.0,
+              "sum_vehicle_duration_s": 18037.0,
+              "avg_waiting_s": 444.25,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 18037,
+                  "travel_time_s": 11303,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 3554
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 11574,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 106992.0,
+              "makespan_s": 18652.0,
+              "sum_vehicle_duration_s": 18652.0,
+              "avg_waiting_s": 884.75,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 18652,
+                  "travel_time_s": 8394,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 7078
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 18037.0,
+                "ml": 18652.0,
+                "improvement_pct": -3.409657925375617
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 18037.0,
+                "ml": 18652.0,
+                "improvement_pct": -3.409657925375617
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 86779.0,
+                "ml": 106992.0,
+                "improvement_pct": -23.29250164210235
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 18037.0,
+              "ml": 18652.0,
+              "improvement_pct": -3.409657925375617
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 86779.0,
+              "ml": 106992.0,
+              "improvement_pct": -23.29250164210235
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 18037.0,
+              "ml": 18652.0,
+              "improvement_pct": -3.409657925375617
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        },
+        "calibrated_model": {
+          "version": "v20260315063821017757",
+          "report": {
+            "generated_at": "2026-03-15T09:29:29.330637",
+            "dataset_id": 9,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315063821017757",
+            "baseline": {
+              "feasible": true,
+              "objective": 14483,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 86779.0,
+              "makespan_s": 18037.0,
+              "sum_vehicle_duration_s": 18037.0,
+              "avg_waiting_s": 444.25,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 18037,
+                  "travel_time_s": 11303,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 3554
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 10114,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 106992.0,
+              "makespan_s": 17786.0,
+              "sum_vehicle_duration_s": 17786.0,
+              "avg_waiting_s": 959.0,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 17786,
+                  "travel_time_s": 6934,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 7672
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 18037.0,
+                "ml": 17786.0,
+                "improvement_pct": 1.391583966291512
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 18037.0,
+                "ml": 17786.0,
+                "improvement_pct": 1.391583966291512
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 86779.0,
+                "ml": 106992.0,
+                "improvement_pct": -23.29250164210235
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 18037.0,
+              "ml": 17786.0,
+              "improvement_pct": 1.391583966291512
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 86779.0,
+              "ml": 106992.0,
+              "improvement_pct": -23.29250164210235
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 18037.0,
+              "ml": 17786.0,
+              "improvement_pct": 1.391583966291512
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        }
+      },
+      {
+        "file_name": "stops_experiment_3.csv",
+        "dataset_id": 10,
+        "scenario": {
+          "id": "S1",
+          "label": "Nominal",
+          "num_vehicles": 2,
+          "capacity": 20,
+          "workday_start": "08:00",
+          "workday_end": "18:00",
+          "allow_drop_visits": true
+        },
+        "baseline_version": "fallback_v1",
+        "routing_note": "authenticated_onemap_routing_enabled",
+        "initial_model": {
+          "version": "v20260315045420274714",
+          "report": {
+            "generated_at": "2026-03-15T09:30:19.798253",
+            "dataset_id": 10,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315045420274714",
+            "baseline": {
+              "feasible": true,
+              "objective": 16398,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 110601.0,
+              "makespan_s": 23471.0,
+              "sum_vehicle_duration_s": 23471.0,
+              "avg_waiting_s": 884.125,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 23471,
+                  "travel_time_s": 13218,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 7073
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 11788,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 114415.0,
+              "makespan_s": 22135.0,
+              "sum_vehicle_duration_s": 22135.0,
+              "avg_waiting_s": 1293.375,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 22135,
+                  "travel_time_s": 8608,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 10347
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 23471.0,
+                "ml": 22135.0,
+                "improvement_pct": 5.6921307144987425
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 23471.0,
+                "ml": 22135.0,
+                "improvement_pct": 5.6921307144987425
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 110601.0,
+                "ml": 114415.0,
+                "improvement_pct": -3.4484317501650077
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 23471.0,
+              "ml": 22135.0,
+              "improvement_pct": 5.6921307144987425
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 110601.0,
+              "ml": 114415.0,
+              "improvement_pct": -3.4484317501650077
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 23471.0,
+              "ml": 22135.0,
+              "improvement_pct": 5.6921307144987425
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        },
+        "calibrated_model": {
+          "version": "v20260315063821017757",
+          "report": {
+            "generated_at": "2026-03-15T09:30:36.162808",
+            "dataset_id": 10,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315063821017757",
+            "baseline": {
+              "feasible": true,
+              "objective": 16398,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 110601.0,
+              "makespan_s": 23471.0,
+              "sum_vehicle_duration_s": 23471.0,
+              "avg_waiting_s": 884.125,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 23471,
+                  "travel_time_s": 13218,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 7073
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 10558,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 138164.0,
+              "makespan_s": 22880.0,
+              "sum_vehicle_duration_s": 22880.0,
+              "avg_waiting_s": 1540.25,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 22880,
+                  "travel_time_s": 7378,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 12322
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 23471.0,
+                "ml": 22880.0,
+                "improvement_pct": 2.518000937326914
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 23471.0,
+                "ml": 22880.0,
+                "improvement_pct": 2.518000937326914
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 110601.0,
+                "ml": 138164.0,
+                "improvement_pct": -24.92111282899793
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 23471.0,
+              "ml": 22880.0,
+              "improvement_pct": 2.518000937326914
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 110601.0,
+              "ml": 138164.0,
+              "improvement_pct": -24.92111282899793
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 23471.0,
+              "ml": 22880.0,
+              "improvement_pct": 2.518000937326914
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        }
+      },
+      {
+        "file_name": "stops_experiment_4.csv",
+        "dataset_id": 11,
+        "scenario": {
+          "id": "S1",
+          "label": "Nominal",
+          "num_vehicles": 2,
+          "capacity": 20,
+          "workday_start": "08:00",
+          "workday_end": "18:00",
+          "allow_drop_visits": true
+        },
+        "baseline_version": "fallback_v1",
+        "routing_note": "authenticated_onemap_routing_enabled",
+        "initial_model": {
+          "version": "v20260315045420274714",
+          "report": {
+            "generated_at": "2026-03-15T09:31:24.988226",
+            "dataset_id": 11,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315045420274714",
+            "baseline": {
+              "feasible": true,
+              "objective": 13970,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 79829.0,
+              "makespan_s": 24357.0,
+              "sum_vehicle_duration_s": 24357.0,
+              "avg_waiting_s": 1298.375,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 24357,
+                  "travel_time_s": 10790,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 10387
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 11483,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 86686.0,
+              "makespan_s": 25036.0,
+              "sum_vehicle_duration_s": 25036.0,
+              "avg_waiting_s": 1694.125,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 25036,
+                  "travel_time_s": 8303,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 13553
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 24357.0,
+                "ml": 25036.0,
+                "improvement_pct": -2.7876996346019625
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 24357.0,
+                "ml": 25036.0,
+                "improvement_pct": -2.7876996346019625
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 79829.0,
+                "ml": 86686.0,
+                "improvement_pct": -8.589610291999149
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 24357.0,
+              "ml": 25036.0,
+              "improvement_pct": -2.7876996346019625
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 79829.0,
+              "ml": 86686.0,
+              "improvement_pct": -8.589610291999149
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 24357.0,
+              "ml": 25036.0,
+              "improvement_pct": -2.7876996346019625
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        },
+        "calibrated_model": {
+          "version": "v20260315063821017757",
+          "report": {
+            "generated_at": "2026-03-15T09:31:41.309036",
+            "dataset_id": 11,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315063821017757",
+            "baseline": {
+              "feasible": true,
+              "objective": 13970,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 79829.0,
+              "makespan_s": 24357.0,
+              "sum_vehicle_duration_s": 24357.0,
+              "avg_waiting_s": 1298.375,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 24357,
+                  "travel_time_s": 10790,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 10387
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 8395,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 76405.0,
+              "makespan_s": 23744.0,
+              "sum_vehicle_duration_s": 23744.0,
+              "avg_waiting_s": 1918.625,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 23744,
+                  "travel_time_s": 5215,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 15349
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 24357.0,
+                "ml": 23744.0,
+                "improvement_pct": 2.516730303403539
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 24357.0,
+                "ml": 23744.0,
+                "improvement_pct": 2.516730303403539
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 79829.0,
+                "ml": 76405.0,
+                "improvement_pct": 4.289168096806925
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 24357.0,
+              "ml": 23744.0,
+              "improvement_pct": 2.516730303403539
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 79829.0,
+              "ml": 76405.0,
+              "improvement_pct": 4.289168096806925
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 24357.0,
+              "ml": 23744.0,
+              "improvement_pct": 2.516730303403539
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        }
+      },
+      {
+        "file_name": "stops_experiment_5.csv",
+        "dataset_id": 12,
+        "scenario": {
+          "id": "S1",
+          "label": "Nominal",
+          "num_vehicles": 2,
+          "capacity": 20,
+          "workday_start": "08:00",
+          "workday_end": "18:00",
+          "allow_drop_visits": true
+        },
+        "baseline_version": "fallback_v1",
+        "routing_note": "authenticated_onemap_routing_enabled",
+        "initial_model": {
+          "version": "v20260315045420274714",
+          "report": {
+            "generated_at": "2026-03-15T09:32:30.325946",
+            "dataset_id": 12,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315045420274714",
+            "baseline": {
+              "feasible": true,
+              "objective": 14793,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 95541.0,
+              "makespan_s": 29042.0,
+              "sum_vehicle_duration_s": 29042.0,
+              "avg_waiting_s": 1781.125,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 29042,
+                  "travel_time_s": 11613,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 14249
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 11716,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 119629.0,
+              "makespan_s": 30670.0,
+              "sum_vehicle_duration_s": 30670.0,
+              "avg_waiting_s": 2369.25,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 30670,
+                  "travel_time_s": 8536,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 18954
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 29042.0,
+                "ml": 30670.0,
+                "improvement_pct": -5.605674540320915
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 29042.0,
+                "ml": 30670.0,
+                "improvement_pct": -5.605674540320915
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 95541.0,
+                "ml": 119629.0,
+                "improvement_pct": -25.21221255795941
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 29042.0,
+              "ml": 30670.0,
+              "improvement_pct": -5.605674540320915
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 95541.0,
+              "ml": 119629.0,
+              "improvement_pct": -25.21221255795941
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 29042.0,
+              "ml": 30670.0,
+              "improvement_pct": -5.605674540320915
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        },
+        "calibrated_model": {
+          "version": "v20260315063821017757",
+          "report": {
+            "generated_at": "2026-03-15T09:32:46.681771",
+            "dataset_id": 12,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315063821017757",
+            "baseline": {
+              "feasible": true,
+              "objective": 14793,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 95541.0,
+              "makespan_s": 29042.0,
+              "sum_vehicle_duration_s": 29042.0,
+              "avg_waiting_s": 1781.125,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 29042,
+                  "travel_time_s": 11613,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 14249
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 10379,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 145604.0,
+              "makespan_s": 28503.0,
+              "sum_vehicle_duration_s": 28503.0,
+              "avg_waiting_s": 2265.5,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 28503,
+                  "travel_time_s": 7199,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 18124
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 29042.0,
+                "ml": 28503.0,
+                "improvement_pct": 1.8559327869981406
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 29042.0,
+                "ml": 28503.0,
+                "improvement_pct": 1.8559327869981406
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 95541.0,
+                "ml": 145604.0,
+                "improvement_pct": -52.399493411205654
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 29042.0,
+              "ml": 28503.0,
+              "improvement_pct": 1.8559327869981406
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 95541.0,
+              "ml": 145604.0,
+              "improvement_pct": -52.399493411205654
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 29042.0,
+              "ml": 28503.0,
+              "improvement_pct": 1.8559327869981406
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        }
+      },
+      {
+        "file_name": "stops_experiment_6.csv",
+        "dataset_id": 13,
+        "scenario": {
+          "id": "S1",
+          "label": "Nominal",
+          "num_vehicles": 2,
+          "capacity": 20,
+          "workday_start": "08:00",
+          "workday_end": "18:00",
+          "allow_drop_visits": true
+        },
+        "baseline_version": "fallback_v1",
+        "routing_note": "authenticated_onemap_routing_enabled",
+        "initial_model": {
+          "version": "v20260315045420274714",
+          "report": {
+            "generated_at": "2026-03-15T09:33:48.016043",
+            "dataset_id": 13,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315045420274714",
+            "baseline": {
+              "feasible": true,
+              "objective": 13850,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 83052.0,
+              "makespan_s": 15632.0,
+              "sum_vehicle_duration_s": 15632.0,
+              "avg_waiting_s": 222.75,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 15632,
+                  "travel_time_s": 10670,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 1782
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 11380,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 83052.0,
+              "makespan_s": 13816.0,
+              "sum_vehicle_duration_s": 13816.0,
+              "avg_waiting_s": 304.5,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 13816,
+                  "travel_time_s": 8200,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 2436
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 15632.0,
+                "ml": 13816.0,
+                "improvement_pct": 11.617195496417605
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 15632.0,
+                "ml": 13816.0,
+                "improvement_pct": 11.617195496417605
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 83052.0,
+                "ml": 83052.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 15632.0,
+              "ml": 13816.0,
+              "improvement_pct": 11.617195496417605
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 83052.0,
+              "ml": 83052.0,
+              "improvement_pct": 0.0
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 15632.0,
+              "ml": 13816.0,
+              "improvement_pct": 11.617195496417605
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        },
+        "calibrated_model": {
+          "version": "v20260315063821017757",
+          "report": {
+            "generated_at": "2026-03-15T09:34:04.344648",
+            "dataset_id": 13,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315063821017757",
+            "baseline": {
+              "feasible": true,
+              "objective": 13850,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 83052.0,
+              "makespan_s": 15632.0,
+              "sum_vehicle_duration_s": 15632.0,
+              "avg_waiting_s": 222.75,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 15632,
+                  "travel_time_s": 10670,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 1782
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 9690,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 88215.0,
+              "makespan_s": 12944.0,
+              "sum_vehicle_duration_s": 12944.0,
+              "avg_waiting_s": 406.75,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 12944,
+                  "travel_time_s": 6510,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 3254
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 15632.0,
+                "ml": 12944.0,
+                "improvement_pct": 17.195496417604915
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 15632.0,
+                "ml": 12944.0,
+                "improvement_pct": 17.195496417604915
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 83052.0,
+                "ml": 88215.0,
+                "improvement_pct": -6.2165871983817365
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 15632.0,
+              "ml": 12944.0,
+              "improvement_pct": 17.195496417604915
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 83052.0,
+              "ml": 88215.0,
+              "improvement_pct": -6.2165871983817365
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 15632.0,
+              "ml": 12944.0,
+              "improvement_pct": 17.195496417604915
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        }
+      },
+      {
+        "file_name": "stops_experiment_7.csv",
+        "dataset_id": 14,
+        "scenario": {
+          "id": "S1",
+          "label": "Nominal",
+          "num_vehicles": 2,
+          "capacity": 20,
+          "workday_start": "08:00",
+          "workday_end": "18:00",
+          "allow_drop_visits": true
+        },
+        "baseline_version": "fallback_v1",
+        "routing_note": "authenticated_onemap_routing_enabled",
+        "initial_model": {
+          "version": "v20260315045420274714",
+          "report": {
+            "generated_at": "2026-03-15T09:34:51.442502",
+            "dataset_id": 14,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315045420274714",
+            "baseline": {
+              "feasible": true,
+              "objective": 12999,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 76735.0,
+              "makespan_s": 19473.0,
+              "sum_vehicle_duration_s": 19473.0,
+              "avg_waiting_s": 809.25,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 19473,
+                  "travel_time_s": 9819,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 6474
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 11589,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 100845.0,
+              "makespan_s": 17291.0,
+              "sum_vehicle_duration_s": 17291.0,
+              "avg_waiting_s": 712.75,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 17291,
+                  "travel_time_s": 8409,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 5702
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 19473.0,
+                "ml": 17291.0,
+                "improvement_pct": 11.205258563138704
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 19473.0,
+                "ml": 17291.0,
+                "improvement_pct": 11.205258563138704
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 76735.0,
+                "ml": 100845.0,
+                "improvement_pct": -31.419821463478204
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 19473.0,
+              "ml": 17291.0,
+              "improvement_pct": 11.205258563138704
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 76735.0,
+              "ml": 100845.0,
+              "improvement_pct": -31.419821463478204
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 19473.0,
+              "ml": 17291.0,
+              "improvement_pct": 11.205258563138704
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        },
+        "calibrated_model": {
+          "version": "v20260315063821017757",
+          "report": {
+            "generated_at": "2026-03-15T09:35:07.761529",
+            "dataset_id": 14,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315063821017757",
+            "baseline": {
+              "feasible": true,
+              "objective": 12999,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 76735.0,
+              "makespan_s": 19473.0,
+              "sum_vehicle_duration_s": 19473.0,
+              "avg_waiting_s": 809.25,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 19473,
+                  "travel_time_s": 9819,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 6474
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 9412,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 85939.0,
+              "makespan_s": 17448.0,
+              "sum_vehicle_duration_s": 17448.0,
+              "avg_waiting_s": 1004.5,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 17448,
+                  "travel_time_s": 6232,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 8036
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 19473.0,
+                "ml": 17448.0,
+                "improvement_pct": 10.399014019411492
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 19473.0,
+                "ml": 17448.0,
+                "improvement_pct": 10.399014019411492
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 76735.0,
+                "ml": 85939.0,
+                "improvement_pct": -11.994526617579982
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 19473.0,
+              "ml": 17448.0,
+              "improvement_pct": 10.399014019411492
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 76735.0,
+              "ml": 85939.0,
+              "improvement_pct": -11.994526617579982
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 19473.0,
+              "ml": 17448.0,
+              "improvement_pct": 10.399014019411492
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        }
+      },
+      {
+        "file_name": "stops_experiment_8.csv",
+        "dataset_id": 15,
+        "scenario": {
+          "id": "S1",
+          "label": "Nominal",
+          "num_vehicles": 2,
+          "capacity": 20,
+          "workday_start": "08:00",
+          "workday_end": "18:00",
+          "allow_drop_visits": true
+        },
+        "baseline_version": "fallback_v1",
+        "routing_note": "authenticated_onemap_routing_enabled",
+        "initial_model": {
+          "version": "v20260315045420274714",
+          "report": {
+            "generated_at": "2026-03-15T09:35:41.558519",
+            "dataset_id": 15,
+            "samples": 7,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315045420274714",
+            "baseline": {
+              "feasible": true,
+              "objective": 9489,
+              "served_count": 7,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 50377.0,
+              "makespan_s": 21252.0,
+              "sum_vehicle_duration_s": 21252.0,
+              "avg_waiting_s": 1680.4285714285713,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 7,
+                  "total_duration_s": 21252,
+                  "travel_time_s": 6669,
+                  "service_time_s": 2820,
+                  "waiting_time_s": 11763
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 10106,
+              "served_count": 7,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 50618.0,
+              "makespan_s": 21971.0,
+              "sum_vehicle_duration_s": 21971.0,
+              "avg_waiting_s": 1695.0,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 7,
+                  "total_duration_s": 21971,
+                  "travel_time_s": 7286,
+                  "service_time_s": 2820,
+                  "waiting_time_s": 11865
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 21252.0,
+                "ml": 21971.0,
+                "improvement_pct": -3.383210991906644
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 21252.0,
+                "ml": 21971.0,
+                "improvement_pct": -3.383210991906644
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 50377.0,
+                "ml": 50618.0,
+                "improvement_pct": -0.47839291740278306
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 21252.0,
+              "ml": 21971.0,
+              "improvement_pct": -3.383210991906644
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 50377.0,
+              "ml": 50618.0,
+              "improvement_pct": -0.47839291740278306
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 21252.0,
+              "ml": 21971.0,
+              "improvement_pct": -3.383210991906644
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        },
+        "calibrated_model": {
+          "version": "v20260315063821017757",
+          "report": {
+            "generated_at": "2026-03-15T09:35:57.824761",
+            "dataset_id": 15,
+            "samples": 7,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315063821017757",
+            "baseline": {
+              "feasible": true,
+              "objective": 9489,
+              "served_count": 7,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 50377.0,
+              "makespan_s": 21252.0,
+              "sum_vehicle_duration_s": 21252.0,
+              "avg_waiting_s": 1680.4285714285713,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 7,
+                  "total_duration_s": 21252,
+                  "travel_time_s": 6669,
+                  "service_time_s": 2820,
+                  "waiting_time_s": 11763
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 6628,
+              "served_count": 7,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 55019.0,
+              "makespan_s": 20770.0,
+              "sum_vehicle_duration_s": 20770.0,
+              "avg_waiting_s": 2020.2857142857142,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 7,
+                  "total_duration_s": 20770,
+                  "travel_time_s": 3808,
+                  "service_time_s": 2820,
+                  "waiting_time_s": 14142
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 21252.0,
+                "ml": 20770.0,
+                "improvement_pct": 2.2680218332392243
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 21252.0,
+                "ml": 20770.0,
+                "improvement_pct": 2.2680218332392243
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 50377.0,
+                "ml": 55019.0,
+                "improvement_pct": -9.21452250034738
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 21252.0,
+              "ml": 20770.0,
+              "improvement_pct": 2.2680218332392243
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 50377.0,
+              "ml": 55019.0,
+              "improvement_pct": -9.21452250034738
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 21252.0,
+              "ml": 20770.0,
+              "improvement_pct": 2.2680218332392243
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        }
+      },
+      {
+        "file_name": "stops_experiment_9.csv",
+        "dataset_id": 16,
+        "scenario": {
+          "id": "S1",
+          "label": "Nominal",
+          "num_vehicles": 2,
+          "capacity": 20,
+          "workday_start": "08:00",
+          "workday_end": "18:00",
+          "allow_drop_visits": true
+        },
+        "baseline_version": "fallback_v1",
+        "routing_note": "authenticated_onemap_routing_enabled",
+        "initial_model": {
+          "version": "v20260315045420274714",
+          "report": {
+            "generated_at": "2026-03-15T09:36:55.064928",
+            "dataset_id": 16,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315045420274714",
+            "baseline": {
+              "feasible": true,
+              "objective": 7691,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 29267.0,
+              "makespan_s": 25007.0,
+              "sum_vehicle_duration_s": 25007.0,
+              "avg_waiting_s": 2164.5,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 25007,
+                  "travel_time_s": 4511,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 17316
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 11143,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 38316.0,
+              "makespan_s": 25571.0,
+              "sum_vehicle_duration_s": 25571.0,
+              "avg_waiting_s": 1803.5,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 25571,
+                  "travel_time_s": 7963,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 14428
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 25007.0,
+                "ml": 25571.0,
+                "improvement_pct": -2.2553684968208905
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 25007.0,
+                "ml": 25571.0,
+                "improvement_pct": -2.2553684968208905
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 29267.0,
+                "ml": 38316.0,
+                "improvement_pct": -30.918782246215876
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 25007.0,
+              "ml": 25571.0,
+              "improvement_pct": -2.2553684968208905
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 29267.0,
+              "ml": 38316.0,
+              "improvement_pct": -30.918782246215876
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 25007.0,
+              "ml": 25571.0,
+              "improvement_pct": -2.2553684968208905
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        },
+        "calibrated_model": {
+          "version": "v20260315063821017757",
+          "report": {
+            "generated_at": "2026-03-15T09:37:11.401454",
+            "dataset_id": 16,
+            "samples": 8,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315063821017757",
+            "baseline": {
+              "feasible": true,
+              "objective": 7691,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 29267.0,
+              "makespan_s": 25007.0,
+              "sum_vehicle_duration_s": 25007.0,
+              "avg_waiting_s": 2164.5,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 8,
+                  "total_duration_s": 25007,
+                  "travel_time_s": 4511,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 17316
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 6165,
+              "served_count": 8,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 29267.0,
+              "makespan_s": 24268.0,
+              "sum_vehicle_duration_s": 24268.0,
+              "avg_waiting_s": 2262.875,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 8,
+                  "total_duration_s": 24268,
+                  "travel_time_s": 2985,
+                  "service_time_s": 3180,
+                  "waiting_time_s": 18103
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 25007.0,
+                "ml": 24268.0,
+                "improvement_pct": 2.955172551685528
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 25007.0,
+                "ml": 24268.0,
+                "improvement_pct": 2.955172551685528
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 29267.0,
+                "ml": 29267.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 25007.0,
+              "ml": 24268.0,
+              "improvement_pct": 2.955172551685528
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 29267.0,
+              "ml": 29267.0,
+              "improvement_pct": 0.0
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 25007.0,
+              "ml": 24268.0,
+              "improvement_pct": 2.955172551685528
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        }
+      },
+      {
+        "file_name": "stops_experiment_10.csv",
+        "dataset_id": 17,
+        "scenario": {
+          "id": "S1",
+          "label": "Nominal",
+          "num_vehicles": 2,
+          "capacity": 20,
+          "workday_start": "08:00",
+          "workday_end": "18:00",
+          "allow_drop_visits": true
+        },
+        "baseline_version": "fallback_v1",
+        "routing_note": "authenticated_onemap_routing_enabled",
+        "initial_model": {
+          "version": "v20260315045420274714",
+          "report": {
+            "generated_at": "2026-03-15T09:37:44.847248",
+            "dataset_id": 17,
+            "samples": 7,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315045420274714",
+            "baseline": {
+              "feasible": true,
+              "objective": 6660,
+              "served_count": 7,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 25619.0,
+              "makespan_s": 27942.0,
+              "sum_vehicle_duration_s": 27942.0,
+              "avg_waiting_s": 3040.285714285714,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 7,
+                  "total_duration_s": 27942,
+                  "travel_time_s": 3900,
+                  "service_time_s": 2760,
+                  "waiting_time_s": 21282
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 9876,
+              "served_count": 7,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 28750.0,
+              "makespan_s": 29171.0,
+              "sum_vehicle_duration_s": 29171.0,
+              "avg_waiting_s": 2756.4285714285716,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 7,
+                  "total_duration_s": 29171,
+                  "travel_time_s": 7116,
+                  "service_time_s": 2760,
+                  "waiting_time_s": 19295
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 27942.0,
+                "ml": 29171.0,
+                "improvement_pct": -4.398396678834729
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 27942.0,
+                "ml": 29171.0,
+                "improvement_pct": -4.398396678834729
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 25619.0,
+                "ml": 28750.0,
+                "improvement_pct": -12.221398181037511
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 27942.0,
+              "ml": 29171.0,
+              "improvement_pct": -4.398396678834729
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 25619.0,
+              "ml": 28750.0,
+              "improvement_pct": -12.221398181037511
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 27942.0,
+              "ml": 29171.0,
+              "improvement_pct": -4.398396678834729
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        },
+        "calibrated_model": {
+          "version": "v20260315063821017757",
+          "report": {
+            "generated_at": "2026-03-15T09:38:01.036795",
+            "dataset_id": 17,
+            "samples": 7,
+            "baseline_version": "fallback_v1",
+            "ml_version": "v20260315063821017757",
+            "baseline": {
+              "feasible": true,
+              "objective": 6660,
+              "served_count": 7,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 25619.0,
+              "makespan_s": 27942.0,
+              "sum_vehicle_duration_s": 27942.0,
+              "avg_waiting_s": 3040.285714285714,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 7,
+                  "total_duration_s": 27942,
+                  "travel_time_s": 3900,
+                  "service_time_s": 2760,
+                  "waiting_time_s": 21282
+                }
+              ]
+            },
+            "ml": {
+              "feasible": true,
+              "objective": 5271,
+              "served_count": 7,
+              "served_ratio": 1.0,
+              "unserved_count": 0,
+              "total_distance_m": 25620.0,
+              "makespan_s": 27108.0,
+              "sum_vehicle_duration_s": 27108.0,
+              "avg_waiting_s": 3119.5714285714284,
+              "on_time_rate": 1.0,
+              "route_summaries": [
+                {
+                  "vehicle_idx": 0,
+                  "vehicle_number": 1,
+                  "stop_count": 0,
+                  "total_duration_s": 0,
+                  "travel_time_s": 0,
+                  "service_time_s": 0,
+                  "waiting_time_s": 0
+                },
+                {
+                  "vehicle_idx": 1,
+                  "vehicle_number": 2,
+                  "stop_count": 7,
+                  "total_duration_s": 27108,
+                  "travel_time_s": 2511,
+                  "service_time_s": 2760,
+                  "waiting_time_s": 21837
+                }
+              ]
+            },
+            "comparison": [
+              {
+                "key": "served_ratio",
+                "label": "Served Ratio",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "on_time_rate",
+                "label": "On-Time Rate",
+                "higher_is_better": true,
+                "baseline": 1.0,
+                "ml": 1.0,
+                "improvement_pct": 0.0
+              },
+              {
+                "key": "makespan_s",
+                "label": "Total Makespan (s)",
+                "higher_is_better": false,
+                "baseline": 27942.0,
+                "ml": 27108.0,
+                "improvement_pct": 2.984754133562379
+              },
+              {
+                "key": "sum_vehicle_duration_s",
+                "label": "Sum Vehicle Durations (s)",
+                "higher_is_better": false,
+                "baseline": 27942.0,
+                "ml": 27108.0,
+                "improvement_pct": 2.984754133562379
+              },
+              {
+                "key": "total_distance_m",
+                "label": "Total Distance (m)",
+                "higher_is_better": false,
+                "baseline": 25619.0,
+                "ml": 25620.0,
+                "improvement_pct": -0.00390335298021
+              },
+              {
+                "key": "unserved_count",
+                "label": "Unserved Stops",
+                "higher_is_better": false,
+                "baseline": 0.0,
+                "ml": 0.0,
+                "improvement_pct": null
+              }
+            ]
+          },
+          "kpis": {
+            "makespan_s": {
+              "key": "makespan_s",
+              "label": "Total Makespan (s)",
+              "higher_is_better": false,
+              "baseline": 27942.0,
+              "ml": 27108.0,
+              "improvement_pct": 2.984754133562379
+            },
+            "total_distance_m": {
+              "key": "total_distance_m",
+              "label": "Total Distance (m)",
+              "higher_is_better": false,
+              "baseline": 25619.0,
+              "ml": 25620.0,
+              "improvement_pct": -0.00390335298021
+            },
+            "sum_vehicle_duration_s": {
+              "key": "sum_vehicle_duration_s",
+              "label": "Sum Vehicle Durations (s)",
+              "higher_is_better": false,
+              "baseline": 27942.0,
+              "ml": 27108.0,
+              "improvement_pct": 2.984754133562379
+            },
+            "served_ratio": {
+              "key": "served_ratio",
+              "label": "Served Ratio",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "on_time_rate": {
+              "key": "on_time_rate",
+              "label": "On-Time Rate",
+              "higher_is_better": true,
+              "baseline": 1.0,
+              "ml": 1.0,
+              "improvement_pct": 0.0
+            },
+            "unserved_count": {
+              "key": "unserved_count",
+              "label": "Unserved Stops",
+              "higher_is_better": false,
+              "baseline": 0.0,
+              "ml": 0.0,
+              "improvement_pct": null
+            }
+          }
+        }
+      }
+    ]
+  }
+}
