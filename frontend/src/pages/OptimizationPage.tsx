@@ -8,6 +8,7 @@ import { useWorkflowContext } from "../components/layout/WorkflowContext";
 import { useJobStatus } from "../hooks/useJobStatus";
 import { EmptyState } from "../components/status/EmptyState";
 import { ErrorState } from "../components/status/ErrorState";
+import { vehicleLabel } from "../lib/vehicles";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
@@ -384,6 +385,10 @@ export function OptimizationPage() {
     return `${String(finishHour).padStart(2, "0")}:${String(finishMin).padStart(2, "0")}`;
   }, [result, workStart]);
 
+  const usedVehicleCount = useMemo(() => {
+    return result?.route_summary?.filter((route) => route.stop_count > 0).length ?? 0;
+  }, [result]);
+
   if (!datasetId) {
     return (
       <EmptyState
@@ -599,7 +604,8 @@ export function OptimizationPage() {
                   </div>
                   <div className="rounded-xl border p-3">
                     <p className="text-xs uppercase text-muted-foreground">Vehicles used</p>
-                    <p className="text-xl font-semibold">{result.route_summary?.length || 0}</p>
+                    <p className="text-xl font-semibold">{usedVehicleCount}</p>
+                    <p className="text-xs text-muted-foreground">of {result.route_summary?.length || 0} requested</p>
                   </div>
                 </div>
 
@@ -616,7 +622,7 @@ export function OptimizationPage() {
                     <TableBody>
                       {result.route_summary?.map((route) => (
                         <TableRow key={route.vehicle_idx}>
-                          <TableCell>Vehicle {route.vehicle_idx}</TableCell>
+                          <TableCell>{vehicleLabel(route.vehicle_idx)}</TableCell>
                           <TableCell>{route.stop_count}</TableCell>
                           <TableCell>{(route.total_distance_m / 1000).toFixed(1)} km</TableCell>
                           <TableCell>{Math.round(route.total_duration_s / 60)} min</TableCell>

@@ -3,6 +3,7 @@ import { Clock4, MapPin, Timer } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Card, CardContent } from "../ui/card";
 import { cn } from "../../lib/utils";
+import { vehicleLabel } from "../../lib/vehicles";
 
 type RouteCardProps = {
   vehicleIdx: number;
@@ -27,7 +28,7 @@ export function RouteCard({ vehicleIdx, stopCount, distanceM, durationS, startTi
     >
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold">Vehicle {vehicleIdx}</h4>
+          <h4 className="text-sm font-semibold">{vehicleLabel(vehicleIdx)}</h4>
           <Badge variant={risk === "high" ? "danger" : risk === "medium" ? "warning" : "success"}>{risk} risk</Badge>
         </div>
 

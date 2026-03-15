@@ -2,6 +2,7 @@
 
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
+import { vehicleLabel } from "../../lib/vehicles";
 
 type DriverStop = {
   sequence_idx: number;
@@ -55,7 +56,7 @@ export function DriverRouteSheet({ vehicleIdx, stops, totalDistanceM, totalDurat
     <section className="driver-print-sheet space-y-4">
       <Card className="sticky top-16 z-10 border-primary/30 bg-primary/5">
         <CardContent className="space-y-2 p-4">
-          <h3 className="text-xl font-bold">Vehicle {vehicleIdx} Route Sheet</h3>
+          <h3 className="text-xl font-bold">{vehicleLabel(vehicleIdx)} Route Sheet</h3>
           <p className="text-sm text-muted-foreground">
             {Math.max(0, stops.length - 2)} stops | {(totalDistanceM / 1000).toFixed(1)} km | {Math.round(totalDurationS / 60)} min
           </p>

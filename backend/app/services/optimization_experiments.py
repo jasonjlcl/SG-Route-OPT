@@ -48,6 +48,10 @@ def _improvement_pct(baseline: float, model: float, *, higher_is_better: bool) -
     return float(((baseline - model) / abs(baseline)) * 100.0)
 
 
+def _display_vehicle_number(vehicle_idx: int) -> int:
+    return int(vehicle_idx) + 1
+
+
 def _summarize_solver(
     *,
     solver_result: SolverResult,
@@ -111,6 +115,7 @@ def _summarize_solver(
         route_summaries.append(
             {
                 "vehicle_idx": vehicle_idx,
+                "vehicle_number": _display_vehicle_number(vehicle_idx),
                 "stop_count": stop_count,
                 "total_duration_s": int(components["route_duration_s"]),
                 "travel_time_s": int(components["travel_time_s"]),
@@ -417,13 +422,16 @@ def build_ab_report_zip(report: dict[str, Any]) -> bytes:
 
     route_csv = io.StringIO()
     writer = csv.writer(route_csv)
-    writer.writerow(["variant", "vehicle_idx", "stop_count", "total_duration_s", "travel_time_s", "service_time_s", "waiting_time_s"])
+    writer.writerow(
+        ["variant", "vehicle_idx", "vehicle_number", "stop_count", "total_duration_s", "travel_time_s", "service_time_s", "waiting_time_s"]
+    )
     for variant in ("baseline", "ml"):
         for row in report.get(variant, {}).get("route_summaries", []):
             writer.writerow(
                 [
                     variant,
                     row.get("vehicle_idx"),
+                    row.get("vehicle_number"),
                     row.get("stop_count"),
                     row.get("total_duration_s"),
                     row.get("travel_time_s"),
@@ -442,4 +450,3 @@ def build_ab_report_zip(report: dict[str, Any]) -> bytes:
         zf.writestr("ab_report.json", json.dumps(report, indent=2))
     zip_buf.seek(0)
     return zip_buf.read()
-

@@ -68,6 +68,12 @@ def export_plan_csv(db: Session, plan_id: int) -> str:
     return output.getvalue()
 
 
+def _display_vehicle_number(vehicle_idx: int | None) -> int | None:
+    if vehicle_idx is None:
+        return None
+    return int(vehicle_idx) + 1
+
+
 def export_driver_csv(db: Session, plan_id: int) -> str:
     plan = get_plan_details(db, plan_id)
     output = io.StringIO()
@@ -161,6 +167,7 @@ def export_plan_pdf(
             route_sections.append(
                 {
                     "vehicle_idx": route["vehicle_idx"],
+                    "vehicle_number": _display_vehicle_number(int(route["vehicle_idx"])),
                     "color": ROUTE_COLORS[index % len(ROUTE_COLORS)],
                     "stops_count": max(0, len(route["stops"]) - 2),
                     "distance_km": round(float(route["total_distance_m"]) / 1000, 2),
@@ -184,7 +191,9 @@ def export_plan_pdf(
             "map_data_uri": map_data_uri,
             "routes": route_sections,
             "unserved_stops": plan.get("unserved_stops", []),
-            "vehicle_scope": f"Vehicle {vehicle_idx}" if vehicle_idx is not None else "All Vehicles",
+            "vehicle_scope": (
+                f"Vehicle {_display_vehicle_number(vehicle_idx)}" if vehicle_idx is not None else "All Vehicles"
+            ),
         }
 
         template = jinja_env.get_template("driver_pack.html")
@@ -221,7 +230,7 @@ def _fallback_pdf(plan_id: int, routes: list[dict[str, Any]]) -> bytes:
 
     pdf.setFont("Helvetica", 10)
     for route in routes:
-        pdf.drawString(40, y, f"Vehicle {route['vehicle_idx']} | Stops {max(0, len(route['stops']) - 2)}")
+        pdf.drawString(40, y, f"Vehicle {_display_vehicle_number(route['vehicle_idx'])} | Stops {max(0, len(route['stops']) - 2)}")
         y -= 14
         if y < 80:
             pdf.showPage()

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from app.models import ActualTravelTime
+from app.models import ActualTravelTime, MLModel
 from app.services.ml_ops import set_rollout, train_and_register_model
 from app.utils.db import SessionLocal
 
@@ -79,6 +79,28 @@ S4,1 HarbourFront Walk,1,5,10:00,16:00
     geocode = client.post(f"/api/v1/datasets/{dataset_id}/geocode", params={"sync": "true"})
     assert geocode.status_code == 200
 
+    db = SessionLocal()
+    try:
+        db.add_all(
+            [
+                MLModel(
+                    version="ab_test_old",
+                    artifact_path="missing-old.pkl",
+                    status="TRAINED",
+                    created_at=datetime(2026, 1, 1, 9, 0, 0),
+                ),
+                MLModel(
+                    version="ab_test_new",
+                    artifact_path="missing-new.pkl",
+                    status="DEPLOYED",
+                    created_at=datetime(2026, 1, 1, 10, 0, 0),
+                ),
+            ]
+        )
+        db.commit()
+    finally:
+        db.close()
+
     ab = client.post(
         f"/api/v1/datasets/{dataset_id}/optimize/ab-test",
         json={
@@ -104,3 +126,40 @@ S4,1 HarbourFront Walk,1,5,10:00,16:00
     assert result_ref.get("file_path")
     assert Path(result_ref["file_path"]).exists()
 
+
+def test_ab_report_route_breakdown_uses_user_facing_vehicle_numbers(client):
+    csv_content = """stop_ref,address,demand,service_time_min,tw_start,tw_end
+S1,10 Bayfront Avenue,1,5,09:00,12:00
+S2,1 Raffles Place,1,5,09:00,13:00
+"""
+    upload = client.post(
+        "/api/v1/datasets/upload",
+        files={"file": ("stops.csv", BytesIO(csv_content.encode("utf-8")), "text/csv")},
+        data={"exclude_invalid": "true"},
+    )
+    dataset_id = upload.json()["dataset_id"]
+
+    geocode = client.post(f"/api/v1/datasets/{dataset_id}/geocode", params={"sync": "true"})
+    assert geocode.status_code == 200
+
+    ab = client.post(
+        f"/api/v1/datasets/{dataset_id}/optimize/ab-test",
+        json={
+            "depot_lat": 1.3521,
+            "depot_lon": 103.8198,
+            "fleet": {"num_vehicles": 2, "capacity": 4},
+            "workday_start": "08:00",
+            "workday_end": "18:00",
+            "solver": {"solver_time_limit_s": 8, "allow_drop_visits": True},
+        },
+    )
+    assert ab.status_code == 200
+    job_id = ab.json()["job_id"]
+
+    status = client.get(f"/api/v1/jobs/{job_id}")
+    payload = status.json()
+    assert payload["status"] == "SUCCEEDED"
+    result_ref = payload["result_ref"] or {}
+    baseline_routes = result_ref.get("baseline", {}).get("route_summaries", [])
+    assert baseline_routes
+    assert baseline_routes[0]["vehicle_number"] == baseline_routes[0]["vehicle_idx"] + 1

@@ -22,6 +22,7 @@ import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { useWorkflowContext } from "../components/layout/WorkflowContext";
 import { useJobStatus } from "../hooks/useJobStatus";
 import { checkCoordinate } from "../lib/geo";
+import { vehicleLabel } from "../lib/vehicles";
 import type { PlanDetails } from "../types";
 
 const routeColors = ["#109869", "#0f69d5", "#f97316", "#8b5cf6", "#ef4444", "#0ea5a4", "#db2777"];
@@ -413,7 +414,7 @@ export function ResultsPage() {
                         <option value="all">All vehicles</option>
                         {plan.routes.map((route) => (
                           <option key={route.route_id} value={String(route.vehicle_idx)}>
-                            Vehicle {route.vehicle_idx}
+                            {vehicleLabel(route.vehicle_idx)}
                           </option>
                         ))}
                       </Select>
@@ -483,7 +484,7 @@ export function ResultsPage() {
                             className="h-2.5 w-2.5 rounded-full"
                             style={{ backgroundColor: routeColors[(activeVehicle === "all" ? route.vehicle_idx : index) % routeColors.length] }}
                           />
-                          Vehicle {route.vehicle_idx}
+                          {vehicleLabel(route.vehicle_idx)}
                         </span>
                       ))}
                     </div>
@@ -516,7 +517,7 @@ export function ResultsPage() {
                       return (
                         <div key={route.route_id} className="space-y-2 rounded-xl border p-3">
                           <div className="flex items-center justify-between">
-                            <p className="text-sm font-semibold">Vehicle {route.vehicle_idx}</p>
+                            <p className="text-sm font-semibold">{vehicleLabel(route.vehicle_idx)}</p>
                             <div className="flex gap-2">
                               {editMode && activeVehicle !== "all" && (
                                 <>
@@ -659,7 +660,7 @@ export function ResultsPage() {
                   <option value="all">All vehicles</option>
                   {plan.routes.map((route) => (
                     <option key={route.route_id} value={String(route.vehicle_idx)}>
-                      Vehicle {route.vehicle_idx}
+                      {vehicleLabel(route.vehicle_idx)}
                     </option>
                   ))}
                 </Select>
@@ -730,7 +731,7 @@ export function ResultsPage() {
                         variant="outline"
                         onClick={() => void queuePdfExport(route.vehicle_idx)}
                       >
-                        <RouteIcon className="mr-2 h-4 w-4" /> Vehicle {route.vehicle_idx}
+                        <RouteIcon className="mr-2 h-4 w-4" /> {vehicleLabel(route.vehicle_idx)}
                       </Button>
                     ))}
                   </div>

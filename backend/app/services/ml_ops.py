@@ -501,7 +501,12 @@ def generate_drift_report(
 def choose_model_version_for_prediction(db: Session) -> str | None:
     rollout = db.execute(select(ModelRollout).order_by(ModelRollout.created_at.desc(), ModelRollout.id.desc()).limit(1)).scalar_one_or_none()
     if rollout is None:
-        model = db.execute(select(MLModel).where(MLModel.status.in_(["TRAINED", "DEPLOYED"])).order_by(MLModel.created_at.desc())).scalar_one_or_none()
+        model = db.execute(
+            select(MLModel)
+            .where(MLModel.status.in_(["TRAINED", "DEPLOYED"]))
+            .order_by(MLModel.created_at.desc(), MLModel.id.desc())
+            .limit(1)
+        ).scalar_one_or_none()
         return model.version if model else None
     if rollout.enabled and rollout.canary_version and rollout.canary_percent > 0:
         bucket = random.randint(1, 100)
