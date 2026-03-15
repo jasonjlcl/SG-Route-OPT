@@ -223,7 +223,7 @@ bash infra/gcp/deploy_frontend.sh
 
 Guardrails baked in:
 
-- Cloud Run `min-instances=0`, `max-instances=1`
+- Cloud Run `min-instances=0`, `max-instances=3`, `concurrency=20`
 - Cloud Tasks queue throttled (`max-concurrent-dispatches=1`)
 - Cloud mode does not require Redis worker processes for async job execution
 - Weekly Cloud Scheduler trigger for `/api/v1/ml/drift-report`

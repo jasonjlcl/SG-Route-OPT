@@ -17,15 +17,56 @@ import type { UploadResponse } from "../types";
 
 const TEMPLATE_CONTENT = `stop_ref,address,postal_code,demand,service_time_min,tw_start,tw_end,phone,contact_name\nS1,10 Bayfront Avenue,,1,5,09:00,12:00,+65 81234567,Jason Tan\nS2,1 Raffles Place,,2,8,10:00,15:30,,\nS3,,768024,1,6,09:30,16:00,91234567,Ops Desk\n`;
 
-function getUploadErrorMessage(err: any): string {
+type UploadUiError = {
+  cause: string;
+  nextStep: string;
+  toastDescription: string;
+};
+
+function getUploadError(err: any): UploadUiError {
   const backendMessage = err?.response?.data?.message;
+  const status = Number(err?.response?.status || 0);
+
   if (backendMessage) {
-    return backendMessage;
+    return {
+      cause: backendMessage,
+      nextStep:
+        status >= 500
+          ? "Retry in a moment. If the problem persists, check backend health and logs."
+          : "Check required columns and row formats, then retry upload.",
+      toastDescription: status >= 500 ? "Backend error. Retry shortly." : "Review file structure and try again.",
+    };
   }
+
   if (!err?.response) {
-    return `Could not reach the backend API at ${API_BASE}. Check that the backend is running and that the frontend/backend hosts match.`;
+    return {
+      cause: `Could not reach the backend API at ${API_BASE}. Check that the backend is running and that the frontend/backend hosts match.`,
+      nextStep: "Retry in a moment. If this keeps happening, check backend availability rather than the CSV format.",
+      toastDescription: "Check backend connectivity and try again.",
+    };
   }
-  return "Upload failed. Check template format and required columns.";
+
+  if (status === 429) {
+    return {
+      cause: `The backend API at ${API_BASE} is currently busy and could not accept the upload.`,
+      nextStep: "Wait a moment and retry. If this persists, reduce concurrent activity or increase backend capacity.",
+      toastDescription: "Backend is busy. Retry shortly.",
+    };
+  }
+
+  if (status >= 500) {
+    return {
+      cause: "The backend returned an internal error while validating the upload.",
+      nextStep: "Retry in a moment. If the problem persists, check backend health and logs.",
+      toastDescription: "Backend error. Retry shortly.",
+    };
+  }
+
+  return {
+    cause: "Upload failed. Check template format and required columns.",
+    nextStep: "Check required columns and row formats, then retry upload.",
+    toastDescription: "Review file structure and try again.",
+  };
 }
 
 export function UploadPage() {
@@ -35,7 +76,7 @@ export function UploadPage() {
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UploadUiError | null>(null);
   const [result, setResult] = useState<UploadResponse | null>(() => {
     const raw = localStorage.getItem("last_upload_result");
     return raw ? (JSON.parse(raw) as UploadResponse) : null;
@@ -54,7 +95,11 @@ export function UploadPage() {
 
   const onUpload = async (excludeInvalid: boolean) => {
     if (!file) {
-      setError("Select a CSV or XLSX file to start validation.");
+      setError({
+        cause: "Select a CSV or XLSX file to start validation.",
+        nextStep: "Choose a file, then retry upload.",
+        toastDescription: "Choose a file to continue.",
+      });
       return;
     }
 
@@ -75,10 +120,10 @@ export function UploadPage() {
         navigate("/geocoding");
       }
     } catch (err: any) {
-      const msg = getUploadErrorMessage(err);
-      setError(msg);
+      const uiError = getUploadError(err);
+      setError(uiError);
       toast.error("Upload failed", {
-        description: err?.response ? "Review file structure and try again." : "Check backend connectivity and try again.",
+        description: uiError.toastDescription,
       });
     } finally {
       setLoading(false);
@@ -168,8 +213,8 @@ export function UploadPage() {
       {error && (
         <ErrorState
           title="Validation could not be completed"
-          cause={error}
-          nextStep="Check required columns and row formats, then retry upload."
+          cause={error.cause}
+          nextStep={error.nextStep}
           actionLabel="Try upload again"
           onAction={() => setError(null)}
         />

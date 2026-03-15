@@ -10,6 +10,9 @@ SERVICE_NAME="${SERVICE_NAME:-sg-route-opt-api}"
 QUEUE_NAME="${CLOUD_TASKS_QUEUE:-route-jobs}"
 SCHEDULER_JOB_NAME="${SCHEDULER_JOB_NAME:-route-ml-drift-weekly}"
 IMAGE_URI="${IMAGE_URI:-gcr.io/${GCP_PROJECT_ID}/${SERVICE_NAME}:latest}"
+MIN_INSTANCES="${MIN_INSTANCES:-0}"
+MAX_INSTANCES="${MAX_INSTANCES:-3}"
+CONTAINER_CONCURRENCY="${CONTAINER_CONCURRENCY:-20}"
 API_SA_NAME="${API_SA_NAME:-route-app-api-sa}"
 TASKS_SA_NAME="${TASKS_SA_NAME:-route-app-tasks-sa}"
 FEATURE_VERTEX_AI="${FEATURE_VERTEX_AI:-false}"
@@ -172,7 +175,7 @@ else
     --max-dispatches-per-second=1 >/dev/null
 fi
 
-echo "==> Deploying Cloud Run service (min=0, max=1)"
+echo "==> Deploying Cloud Run service (min=${MIN_INSTANCES}, max=${MAX_INSTANCES}, concurrency=${CONTAINER_CONCURRENCY})"
 SET_SECRETS_ARGS=()
 if [[ ${#SECRET_BINDINGS[@]} -gt 0 ]]; then
   SET_SECRETS_ARGS=(--set-secrets="$(IFS=,; echo "${SECRET_BINDINGS[*]}")")
@@ -184,8 +187,9 @@ fi
   --platform=managed \
   --service-account="${API_SA_EMAIL}" \
   --allow-unauthenticated \
-  --min-instances=0 \
-  --max-instances=1 \
+  --min-instances="${MIN_INSTANCES}" \
+  --max-instances="${MAX_INSTANCES}" \
+  --concurrency="${CONTAINER_CONCURRENCY}" \
   --memory=2Gi \
   --cpu=1 \
   --port=8080 \
