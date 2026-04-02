@@ -64,7 +64,9 @@ def _summarize_solver(
     if not solver_result.feasible:
         return {
             "feasible": False,
+            "solver_status": "INFEASIBLE",
             "objective": 0,
+            "total_stops": int(total_stops),
             "served_count": 0,
             "served_ratio": 0.0,
             "unserved_count": total_stops,
@@ -72,7 +74,10 @@ def _summarize_solver(
             "makespan_s": 0.0,
             "sum_vehicle_duration_s": 0.0,
             "avg_waiting_s": 0.0,
+            "on_time_count": 0,
             "on_time_rate": 0.0,
+            "late_stops_count": 0,
+            "solve_time_seconds": float(solver_result.solve_time_s),
             "route_summaries": [],
         }
 
@@ -126,13 +131,16 @@ def _summarize_solver(
 
     unserved = len(solver_result.unserved_nodes)
     served = max(0, total_stops - unserved)
+    late_stops = max(0, served_for_ontime - on_time)
     makespan = float(max(route_ends) - min(route_starts)) if route_starts and route_ends else 0.0
     on_time_rate = float(on_time / served_for_ontime) if served_for_ontime > 0 else 0.0
     avg_waiting = float(total_waiting / max(1, served))
 
     return {
         "feasible": True,
+        "solver_status": "SUCCESS" if unserved == 0 else "PARTIAL",
         "objective": int(solver_result.objective),
+        "total_stops": int(total_stops),
         "served_count": int(served),
         "served_ratio": float(served / max(1, total_stops)),
         "unserved_count": int(unserved),
@@ -140,7 +148,10 @@ def _summarize_solver(
         "makespan_s": float(makespan),
         "sum_vehicle_duration_s": float(total_vehicle_duration),
         "avg_waiting_s": float(avg_waiting),
+        "on_time_count": int(on_time),
         "on_time_rate": float(on_time_rate),
+        "late_stops_count": int(late_stops),
+        "solve_time_seconds": float(solver_result.solve_time_s),
         "route_summaries": route_summaries,
     }
 

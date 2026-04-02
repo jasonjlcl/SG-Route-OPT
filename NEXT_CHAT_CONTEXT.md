@@ -952,3 +952,430 @@
    - increase `VERTEX_BATCH_TIMEOUT_SECONDS`
    - evaluate machine/replica sizing and project quotas.
 2. Decide whether to keep Vertex batch enabled in async optimize or gate it behind an explicit feature flag.
+
+---
+
+## Update (March 15, 2026 - Chapter 6 Local Evaluation + Retraining)
+
+## Timestamp
+- Generated: March 15, 2026
+- Workspace date/timezone for this session: `2026-03-15` (`Asia/Singapore`)
+- Purpose: handoff after Chapter 6 local evidence recovery, dissertation-draft generation, and isolated travel-time model retraining/rerun experiments
+
+## Repo Snapshot
+- Repo: `c:\Users\User\OneDrive\Documents\FYP Documents\SG-Route-OPT`
+- Branch: `main`
+- HEAD: `b8fdb75`
+- Remote: `https://github.com/jasonjlcl/SG-Route-OPT.git`
+
+## High-Level Goal In This Session
+- Determine what dissertation/report evidence can be recovered locally
+- Run the strongest defensible local experiments without touching production
+- Turn results into dissertation-ready Chapter 6 text
+- Try retraining/calibrating the travel-time model and rerun the same experiments
+
+## Important Scope / Safety Notes
+- No application source code was changed in this workstream.
+- Work was isolated to:
+  - local analysis
+  - cloned SQLite DBs for experiments
+  - generated markdown summaries
+  - generated CSV training candidates
+  - locally trained model artifacts in `backend/app/ml/artifacts/`
+- No deploys or production changes were made.
+
+## Key Local Data Findings
+
+### Databases
+- Primary useful local DB: `backend/app.db`
+- Root `app.db` remains mostly irrelevant for evaluation and should be ignored for Chapter 6 work.
+- `backend/app.db` observations:
+  - datasets: `7`
+  - stops: `72`
+  - plans: `4`
+  - routes: `5`
+  - route_stops: `37`
+  - jobs: `12`
+  - prediction_logs: `1259`
+  - actual_travel_times: `0`
+  - models table: `1` historical registered model
+
+### Dataset suitability for fresh reruns
+- Dataset `1`:
+  - full OD cache coverage
+  - too small (`3` stops) for meaningful Chapter 6 comparison
+- Dataset `3`:
+  - best local rerun candidate
+  - `12` geocoded stops
+  - total demand `16`
+  - average service time `7.83` minutes
+  - OD cache coverage at tested bucket: `156 / 156` directed pairs (`100%`)
+- Dataset `4`:
+  - `30` stops
+  - OD cache coverage for tested bucket: `0 / 930` pairs (`0%`)
+  - unsuitable for strong dissertation evidence because reruns would depend heavily on fresh heuristic fallback generation
+
+### Local limitations still present
+- `backend/app.db` has `0` rows in `actual_travel_times`
+  - formal actual-vs-predicted travel-time evaluation cannot be reproduced locally
+- `backend/data/ml_uplift/samples.csv` has `30` rows but they are degenerate:
+  - `static_duration_s = 180`
+  - `duration_s = 180`
+  - `congestion_factor = 1.0`
+  - uplift evaluation is not meaningful locally
+- `backend/app.db` is an older schema snapshot for plans
+  - runtime compatibility columns are added on startup
+
+## What Was Generated In This Session
+
+### Isolated experiment DBs
+- `backend/ch6_eval.db`
+  - clone of `backend/app.db`
+  - used for initial Chapter 6 A/B evaluation and model screening
+- `backend/ch6_retrain_eval.db`
+  - clone of `backend/app.db`
+  - used for retraining/calibration experiments and reruns
+
+### Generated summary / dissertation files
+- `backend/ch6_outputs/ch6_local_evaluation_2026-03-15.md`
+  - raw local evidence summary
+- `backend/ch6_outputs/ch6_dissertation_draft_2026-03-15.md`
+  - dissertation-ready Chapter 6 draft text + tables
+- `backend/ch6_outputs/ch6_retraining_rerun_summary_2026-03-15.md`
+  - retraining/calibration experiment summary and rerun results
+
+### Generated retraining datasets
+- `backend/ch6_outputs/retrain/onemap_identity.csv`
+- `backend/ch6_outputs/retrain/onemap_identity_multi_hour.csv`
+- `backend/ch6_outputs/retrain/onemap_routebase.csv`
+- `backend/ch6_outputs/retrain/od_cache_identity_multi_hour.csv`
+
+## Initial Chapter 6 Evaluation Result (Before Retraining)
+
+### Problem discovered
+- The DB registry originally pointed at model version `v20260216081956`
+- That historical artifact path was not present on disk
+- After registering real on-disk artifacts into the isolated experiment DB, all screened local travel-time models were badly miscalibrated for the local Singapore OD cache used by dataset `3`
+
+### Example negative result
+- Baseline in the repo A/B path: `fallback_v1`
+- Using local model `v20260315045420274714` on dataset `3` nominal scenario:
+  - baseline makespan: `15,778 s`
+  - ML makespan: `25,630 s`
+  - baseline distance: `6,936.10 m`
+  - ML distance: `12,545.34 m`
+  - all `12/12` stops still served
+  - on-time remained `1.00`
+- Interpretation:
+  - ML path was worse than fallback baseline on planning KPIs
+  - route service level did not improve
+
+### Cross-check of old artifact families
+- Distinct local model families screened:
+  - `v20260216105011`
+  - `v20260216103502`
+  - `v20260315045420274714`
+- All of them underperformed the fallback baseline on dataset `3`
+
+## Retraining / Calibration Work Done
+
+### Diagnostic conclusion
+- The local artifacts looked acceptable by their stored offline metrics, but their live predictions on the OD cache domain were much too large.
+- This was treated as a calibration/domain-alignment problem rather than a solver problem.
+
+### Candidate retraining/calibration datasets created
+1. `onemap_identity.csv`
+   - from `backend/data/onemap_vertex_eta/onemap_labels.csv`
+   - `base_duration_s = actual_duration_s`
+2. `onemap_identity_multi_hour.csv`
+   - same label set duplicated across representative hours
+3. `onemap_routebase.csv`
+   - OneMap label set using `route_distance_m / 9.0` as base duration
+4. `od_cache_identity_multi_hour.csv`
+   - derived from the local `od_cache`
+   - `actual_duration_s = base_duration_s`
+   - duplicated across representative hours
+
+### Isolated retrained model versions
+- `v20260315063816867841`
+  - candidate: `onemap_identity.csv`
+- `v20260315063819799285`
+  - candidate: `onemap_identity_multi_hour.csv`
+- `v20260315063820648976`
+  - candidate: `onemap_routebase.csv`
+- `v20260315063821017757`
+  - candidate: `od_cache_identity_multi_hour.csv`
+  - best overall rerun candidate
+
+### Screening result
+- Best candidate selected: `v20260315063821017757`
+- Reason:
+  - improved makespan relative to fallback baseline
+  - did not worsen total distance
+- Other retrained candidates still worsened either makespan, distance, or both
+
+## Best Retrained Rerun Result
+
+### Selected model
+- Version: `v20260315063821017757`
+- Training source: `backend/ch6_outputs/retrain/od_cache_identity_multi_hour.csv`
+- Meaning:
+  - this is effectively a calibration-to-local-cache model
+  - it aligns the model predictions to the OD matrix domain used in the local routing experiments
+
+### Rerun outcomes on dataset `3`
+- Nominal scenario (`2` vehicles, capacity `20`, `08:00-18:00`):
+  - baseline makespan: `15,778 s`
+  - retrained model makespan: `15,694 s`
+  - makespan improvement: `+0.53%`
+  - baseline distance: `6,936.10 m`
+  - retrained model distance: `6,936.10 m`
+  - distance improvement: `0.00%`
+- Tight-capacity scenario (`2` vehicles, capacity `8`, `08:00-18:00`):
+  - baseline makespan: `14,268 s`
+  - retrained model makespan: `14,221 s`
+  - makespan improvement: `+0.33%`
+  - sum vehicle duration improvement: `+10.42%`
+  - distance unchanged
+- Shorter-workday scenario (`2` vehicles, capacity `20`, `09:00-17:00`):
+  - baseline makespan: `12,178 s`
+  - retrained model makespan: `12,094 s`
+  - makespan improvement: `+0.69%`
+  - distance unchanged
+
+### Common rerun properties
+- Served stops remained `12/12`
+- On-time rate remained `1.00`
+- Unserved stops remained `0`
+- Main gain was schedule timing, not route geometry
+
+## Best Current Interpretation
+
+### What is supported now
+- Earlier local artifact set:
+  - not suitable as evidence that ML improved routing
+- Retrained/calibrated model:
+  - small but consistent positive result over fallback baseline on the local OD-backed dataset
+  - makespan improvement roughly `0.33%` to `0.69%`
+  - no total-distance improvement
+- Strongest defensible claim:
+  - the local travel-time model can be calibrated so it no longer harms routing performance
+  - under the tested local scenarios, calibration yielded modest schedule improvements but not structural route improvements
+
+### What is still NOT supported
+- formal actual-vs-predicted travel-time evaluation
+- meaningful uplift evaluation
+- improvement over manual-order baseline
+- improvement over nearest-neighbour baseline
+- exact API/cloud cost analysis
+
+## Files To Open First In The Next Chat
+1. `backend/ch6_outputs/ch6_retraining_rerun_summary_2026-03-15.md`
+2. `backend/ch6_outputs/ch6_dissertation_draft_2026-03-15.md`
+3. `backend/ch6_outputs/ch6_local_evaluation_2026-03-15.md`
+4. `backend/ch6_outputs/retrain/od_cache_identity_multi_hour.csv`
+
+## Current Working Tree / Artifacts
+- `backend/ch6_outputs/` is untracked in git
+- cloned experiment DBs are local artifacts
+- no tracked application source files were modified during the Chapter 6 evaluation/retraining work except this handoff file
+
+## Suggested Next Actions (Next Chat)
+1. Update the Chapter 6 dissertation draft to replace the purely negative local result with a retrained-model subsection:
+   - keep the original negative result as diagnosis/background
+   - present the calibrated rerun as the final local sensitivity result
+2. Decide whether to promote the retrained local model into the main local DB registry for future demo/testing:
+   - if yes, register `v20260315063821017757` in `backend/app.db`
+   - if no, keep it as isolated experimental evidence only
+3. If stronger experimental claims are needed, implement one or more missing evaluation supports:
+   - manual-order baseline
+   - nearest-neighbour baseline
+   - real actual-travel-time upload and evaluation
+4. If dissertation polish is the priority, convert the markdown drafts into:
+   - final section numbering
+   - table captions matching the report template
+   - shortened narrative suitable for Chapter 6
+
+## One-Sentence Handoff Summary
+- The next chat should assume that the original local ML artifacts were miscalibrated and harmful, but that an isolated OD-cache-calibrated retrained model (`v20260315063821017757`) produced small, consistent makespan improvements on the only locally robust OD-backed evaluation dataset, with dissertation draft material already generated under `backend/ch6_outputs/`.
+
+---
+
+## Update (March 15, 2026 - Chapter 6 Draft + Figures Committed, 10 New Datasets Evaluated)
+
+## Timestamp
+- Generated: March 15, 2026
+- Workspace date/timezone for this session: `2026-03-15` (`Asia/Singapore`)
+- Purpose: handoff after committing the Chapter 6 draft/figures and running a fresh local evaluation on 10 newly provided stop datasets
+
+## Repo Snapshot
+- Repo: `c:\Users\User\OneDrive\Documents\FYP Documents\SG-Route-OPT`
+- Branch: `main`
+- HEAD: `1859120`
+- Remote: `https://github.com/jasonjlcl/SG-Route-OPT.git`
+
+## What Was Completed In This Chat
+
+### 1) Chapter 6 draft committed and pushed
+- Updated dissertation draft committed on `main`:
+  - commit: `992e18f`
+  - file: `backend/ch6_outputs/ch6_dissertation_draft_2026-03-15.md`
+- Draft now:
+  - keeps the original negative pre-retraining result
+  - adds the retraining/calibration section
+  - presents the calibrated rerun result using `v20260315063821017757`
+
+### 2) Chapter 6 figures committed and pushed
+- Visualization generator committed on `main`:
+  - commit: `1859120`
+  - script: `backend/ch6_outputs/generate_ch6_figures.py`
+- Generated and committed SVG figures:
+  - `backend/ch6_outputs/figures/figure_ch6_01_makespan_by_scenario.svg`
+  - `backend/ch6_outputs/figures/figure_ch6_02_distance_by_scenario.svg`
+  - `backend/ch6_outputs/figures/figure_ch6_03_makespan_change_vs_fallback.svg`
+  - `backend/ch6_outputs/figures/figure_ch6_04_nominal_model_screening.svg`
+- Figure index/caption file committed:
+  - `backend/ch6_outputs/figures/README.md`
+
+### 3) Ten new CSV datasets were validated and evaluated locally
+- New user-provided CSVs under `C:\Users\User\Downloads\stops_experiment_1.csv` to `stops_experiment_10.csv` were checked against the real upload validator.
+- Validation result:
+  - datasets `1` to `9`: `8` valid rows, `0` invalid
+  - dataset `10`: `7` valid rows, `0` invalid
+- A reproducible local evaluation runner was added locally:
+  - `backend/ch6_outputs/run_ch6_new_datasets_eval.py`
+- A fresh isolated SQLite clone was created for this run:
+  - `backend/ch6_experiments_10_eval.db`
+- New generated outputs:
+  - `backend/ch6_outputs/ch6_new_datasets_evaluation_2026-03-15.md`
+  - `backend/ch6_outputs/ch6_new_datasets_evaluation_2026-03-15.json`
+
+## Important Execution Details
+
+### 1) Geocoding status for the 10 new datasets
+- The local run imported and geocoded all 10 datasets into the isolated DB.
+- Address-based rescue via `manual_resolve_stop(...)` was used for several failed geocodes.
+- Final geocode outcome:
+  - `9` datasets fully geocoded
+  - `1` dataset (`stops_experiment_8.csv`) still had `1` unresolved stop
+- Final dataset IDs in the isolated run:
+  - `stops_experiment_1.csv` -> dataset `8`
+  - `stops_experiment_2.csv` -> dataset `9`
+  - `stops_experiment_3.csv` -> dataset `10`
+  - `stops_experiment_4.csv` -> dataset `11`
+  - `stops_experiment_5.csv` -> dataset `12`
+  - `stops_experiment_6.csv` -> dataset `13`
+  - `stops_experiment_7.csv` -> dataset `14`
+  - `stops_experiment_8.csv` -> dataset `15`
+  - `stops_experiment_9.csv` -> dataset `16`
+  - `stops_experiment_10.csv` -> dataset `17`
+
+### 2) Routing limitation in the 10-dataset run
+- Local OneMap credentials were still unset in `.env`:
+  - `ONEMAP_EMAIL=`
+  - `ONEMAP_PASSWORD=`
+- Consequence:
+  - geocoding/search mostly succeeded locally
+  - but routing base durations came from the repo's `OneMapClient.route()` mock-mode fallback, not authenticated OneMap routing
+- This means the 10-dataset study is useful as a local sensitivity check, but weaker than the earlier OD-cache-backed Dataset `3` evidence
+
+### 3) Scenario coverage actually completed
+- Only scenario `S1` was fully run across all 10 new datasets in this session:
+  - `2` vehicles
+  - capacity `20`
+  - `08:00-18:00`
+  - drop visits allowed
+- The runner now supports scoped reruns using:
+  - `--scenario-ids S1`
+  - or multiple IDs like `--scenario-ids S1,S2,S3`
+- Earlier attempts to run all `S1` to `S5` scenarios exceeded the session timeout budget
+
+## Key Findings From The 10-Dataset Nominal Study
+
+### Aggregate result across all 10 datasets
+- Initial local model (`v20260315045420274714`):
+  - mean makespan improvement vs fallback: `-2.33%`
+  - wins: `4 / 10`
+  - mean distance improvement vs fallback: `-14.50%`
+- Calibrated model (`v20260315063821017757`):
+  - mean makespan improvement vs fallback: `+1.30%`
+  - wins: `5 / 10`
+  - mean distance improvement vs fallback: `-12.76%`
+
+### Interpretation
+- The calibrated model still looks directionally better than the earlier harmful local artifact.
+- However, on the 10 new locally generated datasets it is NOT a strong or consistent win.
+- The single-dataset Dataset `3` story does not cleanly generalize here.
+- The 10-dataset nominal study should therefore be framed as:
+  - mixed local sensitivity evidence
+  - not robust proof that the calibrated model broadly improves route quality
+
+### Best and worst calibrated makespan cases in the nominal run
+- Best calibrated makespan case:
+  - `stops_experiment_1.csv`: `+9.67%`
+- Other positive calibrated makespan cases:
+  - `stops_experiment_3.csv`: `+7.47%`
+  - `stops_experiment_10.csv`: `+3.04%`
+  - `stops_experiment_9.csv`: `+2.29%`
+  - `stops_experiment_8.csv`: `+1.33%`
+- Negative calibrated makespan cases:
+  - `stops_experiment_7.csv`: `-4.87%`
+  - `stops_experiment_6.csv`: `-3.52%`
+  - `stops_experiment_2.csv`: `-1.05%`
+  - `stops_experiment_5.csv`: `-0.84%`
+  - `stops_experiment_4.csv`: `-0.56%`
+
+## Best Current Dissertation Interpretation
+
+### What is now supported
+- Dataset `3` remains the strongest locally robust OD-backed evidence.
+- The calibrated model can remove the severe regression seen in the original local artifacts.
+- On the 10 new nominal local datasets, the calibrated model was only mildly positive on average and split evenly enough (`5 / 10` wins) that it should be treated as mixed evidence rather than a robust improvement claim.
+
+### What remains unsupported
+- formal actual-vs-predicted travel-time evaluation
+- meaningful uplift evaluation
+- strong claim that the calibrated model consistently improves routing across diverse local scenarios
+- improvement over manual-order baseline
+- improvement over nearest-neighbour baseline
+
+## Files To Open First In The Next Chat
+1. `backend/ch6_outputs/ch6_new_datasets_evaluation_2026-03-15.md`
+2. `backend/ch6_outputs/ch6_new_datasets_evaluation_2026-03-15.json`
+3. `backend/ch6_outputs/run_ch6_new_datasets_eval.py`
+4. `backend/ch6_outputs/ch6_dissertation_draft_2026-03-15.md`
+5. `backend/ch6_outputs/ch6_retraining_rerun_summary_2026-03-15.md`
+
+## Current Working Tree / Artifacts
+- Modified tracked file:
+  - `NEXT_CHAT_CONTEXT.md`
+- Untracked local artifacts:
+  - `backend/ch6_outputs/ch6_local_evaluation_2026-03-15.md`
+  - `backend/ch6_outputs/ch6_retraining_rerun_summary_2026-03-15.md`
+  - `backend/ch6_outputs/ch6_new_datasets_evaluation_2026-03-15.md`
+  - `backend/ch6_outputs/ch6_new_datasets_evaluation_2026-03-15.json`
+  - `backend/ch6_outputs/retrain/*`
+  - `backend/ch6_outputs/run_ch6_new_datasets_eval.py`
+  - `backend/ch6_experiments_10_eval.db`
+- Already committed/pushed artifacts on `main`:
+  - `backend/ch6_outputs/ch6_dissertation_draft_2026-03-15.md`
+  - `backend/ch6_outputs/generate_ch6_figures.py`
+  - `backend/ch6_outputs/figures/*`
+
+## Suggested Next Actions (Next Chat)
+1. Decide whether to fold the 10-dataset nominal result into Chapter 6:
+   - if yes, present it as mixed local sensitivity evidence with an explicit routing-mock limitation
+   - if no, keep Dataset `3` as the primary defensible local evidence and treat the 10-dataset run as exploratory only
+2. If more coverage is needed, run the remaining scenarios using the runner:
+   - `S2` single vehicle
+   - `S3` tight capacity
+   - `S4` shorter workday
+   - `S5` no-drop
+3. If stronger claims are required, rerun the new datasets only after restoring authenticated OneMap routing credentials locally so the base durations are not mock-mode fallbacks
+4. If dissertation polish is the priority, update the Chapter 6 draft to mention:
+   - Dataset `3` as the strongest OD-backed result
+   - the 10-dataset nominal run as mixed follow-up evidence
+   - the limitation caused by missing local OneMap routing credentials
+
+## One-Sentence Handoff Summary
+- The next chat should assume that the dissertation draft and Chapter 6 figures are already committed on `main`, and that a fresh nominal-only local evaluation across 10 new datasets produced mixed results: the calibrated model was better than the original harmful artifact but only mildly positive overall (`+1.30%` mean makespan, `5/10` wins) under a routing-mock limitation due to missing local OneMap credentials.

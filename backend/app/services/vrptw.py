@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import perf_counter
 
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
@@ -12,6 +13,7 @@ class SolverResult:
     arrivals: list[list[int]]
     objective: int
     unserved_nodes: list[int]
+    solve_time_s: float
 
 
 def solve_vrptw(
@@ -85,9 +87,11 @@ def solve_vrptw(
     search_params.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
     search_params.time_limit.FromSeconds(int(solver_time_limit_s))
 
+    started_at = perf_counter()
     solution = routing.SolveWithParameters(search_params)
+    solve_time_s = float(perf_counter() - started_at)
     if solution is None:
-        return SolverResult(feasible=False, routes=[], arrivals=[], objective=0, unserved_nodes=[])
+        return SolverResult(feasible=False, routes=[], arrivals=[], objective=0, unserved_nodes=[], solve_time_s=solve_time_s)
 
     routes: list[list[int]] = []
     arrivals: list[list[int]] = []
@@ -120,4 +124,5 @@ def solve_vrptw(
         arrivals=arrivals,
         objective=int(solution.ObjectiveValue()),
         unserved_nodes=unserved,
+        solve_time_s=solve_time_s,
     )
