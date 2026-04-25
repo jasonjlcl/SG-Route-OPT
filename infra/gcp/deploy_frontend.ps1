@@ -3,7 +3,11 @@ param(
     [string]$GcpRegion = $(if ($env:GCP_REGION) { $env:GCP_REGION } else { "asia-southeast1" }),
     [string]$FrontendServiceName = $(if ($env:FRONTEND_SERVICE_NAME) { $env:FRONTEND_SERVICE_NAME } else { "sg-route-opt-web" }),
     [string]$ApiServiceName = $(if ($env:API_SERVICE_NAME) { $env:API_SERVICE_NAME } else { "sg-route-opt-api" }),
-    [string]$ApiUrl = $env:API_URL
+    [string]$ApiUrl = $env:API_URL,
+    [string]$FrontendMemory = $(if ($env:FRONTEND_MEMORY) { $env:FRONTEND_MEMORY } else { "512Mi" }),
+    [string]$FrontendCpu = $(if ($env:FRONTEND_CPU) { $env:FRONTEND_CPU } else { "1" }),
+    [string]$FrontendMinInstances = $(if ($env:FRONTEND_MIN_INSTANCES) { $env:FRONTEND_MIN_INSTANCES } else { "0" }),
+    [string]$FrontendMaxInstances = $(if ($env:FRONTEND_MAX_INSTANCES) { $env:FRONTEND_MAX_INSTANCES } else { "1" })
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,10 +38,10 @@ gcloud run deploy $FrontendServiceName `
     --platform managed `
     --allow-unauthenticated `
     --port 8080 `
-    --min-instances 0 `
-    --max-instances 1 `
-    --memory 512Mi `
-    --cpu 1 | Out-Null
+    --min-instances $FrontendMinInstances `
+    --max-instances $FrontendMaxInstances `
+    --memory $FrontendMemory `
+    --cpu $FrontendCpu | Out-Null
 
 $FrontendUrl = gcloud run services describe $FrontendServiceName --region $GcpRegion --format "value(status.url)"
 

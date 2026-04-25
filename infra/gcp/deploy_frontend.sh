@@ -7,6 +7,10 @@ GCP_REGION="${GCP_REGION:-asia-southeast1}"
 FRONTEND_SERVICE_NAME="${FRONTEND_SERVICE_NAME:-sg-route-opt-web}"
 API_SERVICE_NAME="${API_SERVICE_NAME:-sg-route-opt-api}"
 IMAGE_URI="${IMAGE_URI:-gcr.io/${GCP_PROJECT_ID}/${FRONTEND_SERVICE_NAME}:latest}"
+FRONTEND_MEMORY="${FRONTEND_MEMORY:-512Mi}"
+FRONTEND_CPU="${FRONTEND_CPU:-1}"
+FRONTEND_MIN_INSTANCES="${FRONTEND_MIN_INSTANCES:-0}"
+FRONTEND_MAX_INSTANCES="${FRONTEND_MAX_INSTANCES:-1}"
 GCLOUD_BIN="${GCLOUD_BIN:-gcloud}"
 
 echo "==> Configuring project ${GCP_PROJECT_ID} (${GCP_REGION})"
@@ -31,10 +35,10 @@ echo "==> Deploying frontend Cloud Run service: ${FRONTEND_SERVICE_NAME}"
   --platform=managed \
   --allow-unauthenticated \
   --port=8080 \
-  --min-instances=0 \
-  --max-instances=1 \
-  --memory=512Mi \
-  --cpu=1 >/dev/null
+  --min-instances="${FRONTEND_MIN_INSTANCES}" \
+  --max-instances="${FRONTEND_MAX_INSTANCES}" \
+  --memory="${FRONTEND_MEMORY}" \
+  --cpu="${FRONTEND_CPU}" >/dev/null
 
 FRONTEND_URL="$("${GCLOUD_BIN}" run services describe "${FRONTEND_SERVICE_NAME}" --region="${GCP_REGION}" --format='value(status.url)')"
 

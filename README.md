@@ -121,7 +121,7 @@ General runtime options:
 - `DATABASE_URL` (default `sqlite:///./app.db`; for cloud use Postgres, e.g. `postgresql+psycopg://...`)
 - `ALLOWED_ORIGINS` (default `http://localhost:5173`)
 - `APP_BASE_URL` (default `http://localhost:8000`)
-- `FRONTEND_BASE_URL` (default `http://localhost:5173`)
+- `FRONTEND_BASE_URL` (default `http://localhost:5173`; set to the dedicated frontend URL only when not serving the bundled UI from backend Cloud Run)
 - `JOBS_FORCE_INLINE` (set `true` for local/test to execute queued steps inline)
 - `SIGNED_URL_TTL_SECONDS` (default `3600`)
 - `OPTIMIZE_LATENCY_WARN_SECONDS` (default `1200`, emits slow-optimize warning log marker for alerting)
@@ -176,8 +176,8 @@ Open: `http://localhost:5173`
 Scripts:
 
 - Deploy: `infra/gcp/deploy.sh`
-- Deploy frontend (bash): `infra/gcp/deploy_frontend.sh`
-- Deploy frontend (PowerShell): `infra/gcp/deploy_frontend.ps1`
+- Deploy dedicated frontend (bash, optional): `infra/gcp/deploy_frontend.sh`
+- Deploy dedicated frontend (PowerShell, optional): `infra/gcp/deploy_frontend.ps1`
 - Teardown: `infra/gcp/teardown.sh`
 
 Deploy example:
@@ -191,6 +191,9 @@ export ONEMAP_EMAIL=your_email
 export ONEMAP_PASSWORD=your_password
 export DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST:5432/DBNAME'
 export FEATURE_VERTEX_AI=false
+export ENABLE_VERTEX_PLATFORM=false
+export SERVICE_MEMORY=1Gi
+export MAX_INSTANCES=1
 
 bash infra/gcp/deploy.sh
 ```
@@ -198,14 +201,33 @@ bash infra/gcp/deploy.sh
 `infra/gcp/deploy.sh` binds `DATABASE_URL` from Secret Manager into Cloud Run. On first deploy, provide `DATABASE_URL` to seed the secret version.
 
 `infra/gcp/deploy.sh` now runs `alembic upgrade head` via a Cloud Run Job before deploying the service revision.
+It also bundles the React frontend into the backend image and serves it from the same Cloud Run URL by default, so the cheapest deployment path is a single service.
+
+Cheap deployment profile:
+
+- Run only `infra/gcp/deploy.sh` and skip the dedicated frontend deploy scripts unless you need a second web service or separate domain mapping.
+- Set `MAX_INSTANCES=1` for low-traffic environments.
+- Set `SERVICE_MEMORY=1Gi` if your datasets stay within the existing optimize guardrails and you want to cut per-request memory cost.
+- Keep `FEATURE_VERTEX_AI=false` and `ENABLE_VERTEX_PLATFORM=false` unless you actively use Vertex jobs.
+- Use a lower-cost Postgres provider via `DATABASE_URL` if Cloud SQL is the main bill driver; the app already supports any standard Postgres DSN.
+
 Controls:
 
 - `RUN_DB_MIGRATIONS=true|false` (default `true`)
 - `MIGRATION_JOB_NAME` (default `${SERVICE_NAME}-db-migrate`)
+- `SERVICE_MEMORY` (default `2Gi`)
+- `SERVICE_CPU` (default `1`)
+- `SERVICE_TIMEOUT` (default `900`)
+- `ENABLE_VERTEX_PLATFORM=true|false` (default follows `FEATURE_VERTEX_AI`; only enables Vertex API + IAM when needed)
 - `RUN_PHASE7_MONITORING=true|false` (default `false`; apply Phase 7 alerts + dashboard)
 - `MONITORING_NOTIFICATION_CHANNELS` (optional comma-separated channel IDs for policy notifications)
 
-Frontend deploy example (production static build):
+Build context controls:
+
+- `.gcloudignore` trims Cloud Build uploads so local virtualenvs, local DB files, caches, and dissertation outputs are not shipped on every deploy.
+- `.dockerignore` keeps the local Docker build context equally small.
+
+Optional dedicated frontend deploy example (production static build):
 
 ```powershell
 $env:GCP_PROJECT_ID="gen-lang-client-0328386378"
@@ -224,6 +246,7 @@ bash infra/gcp/deploy_frontend.sh
 Guardrails baked in:
 
 - Cloud Run `min-instances=0`, `max-instances=3`, `concurrency=20`
+- Frontend can be served from the same backend Cloud Run service, avoiding a second always-available web service by default
 - Cloud Tasks queue throttled (`max-concurrent-dispatches=1`)
 - Cloud mode does not require Redis worker processes for async job execution
 - Weekly Cloud Scheduler trigger for `/api/v1/ml/drift-report`
@@ -258,7 +281,7 @@ Phase 7 signals covered:
 - Region: `asia-southeast1`
 - Cloud Run service: `sg-route-opt-api`
 - URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`
-- Frontend service: `sg-route-opt-web`
+- Frontend service: `sg-route-opt-web` (optional after the bundled single-service deploy path)
 - Webapp URL: `https://sg-route-opt-web-7wgewdyenq-as.a.run.app`
 - Latest API revision: `sg-route-opt-api-00044-k8w`
 - Latest frontend revision: `sg-route-opt-web-00009-mcl`

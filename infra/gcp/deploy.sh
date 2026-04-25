@@ -13,12 +13,17 @@ IMAGE_URI="${IMAGE_URI:-gcr.io/${GCP_PROJECT_ID}/${SERVICE_NAME}:latest}"
 MIN_INSTANCES="${MIN_INSTANCES:-0}"
 MAX_INSTANCES="${MAX_INSTANCES:-3}"
 CONTAINER_CONCURRENCY="${CONTAINER_CONCURRENCY:-20}"
+SERVICE_MEMORY="${SERVICE_MEMORY:-2Gi}"
+SERVICE_CPU="${SERVICE_CPU:-1}"
+SERVICE_TIMEOUT="${SERVICE_TIMEOUT:-900}"
 API_SA_NAME="${API_SA_NAME:-route-app-api-sa}"
 TASKS_SA_NAME="${TASKS_SA_NAME:-route-app-tasks-sa}"
 FEATURE_VERTEX_AI="${FEATURE_VERTEX_AI:-false}"
+ENABLE_VERTEX_PLATFORM="${ENABLE_VERTEX_PLATFORM:-${FEATURE_VERTEX_AI}}"
 VERTEX_MODEL_DISPLAY_NAME="${VERTEX_MODEL_DISPLAY_NAME:-route-time-regressor}"
 ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-*}"
-FRONTEND_BASE_URL="${FRONTEND_BASE_URL:-https://example-frontend.invalid}"
+DEFAULT_FRONTEND_BASE_URL="https://example-frontend.invalid"
+FRONTEND_BASE_URL="${FRONTEND_BASE_URL:-${DEFAULT_FRONTEND_BASE_URL}}"
 SCHEDULER_TOKEN="${SCHEDULER_TOKEN:-}"
 GCLOUD_BIN="${GCLOUD_BIN:-gcloud}"
 RUN_DB_MIGRATIONS="${RUN_DB_MIGRATIONS:-true}"
@@ -37,14 +42,18 @@ echo "==> Configuring project ${GCP_PROJECT_ID} (${GCP_REGION})"
 "${GCLOUD_BIN}" config set project "${GCP_PROJECT_ID}" >/dev/null
 
 echo "==> Enabling required services"
-"${GCLOUD_BIN}" services enable \
+REQUIRED_SERVICES=(
   run.googleapis.com \
   cloudbuild.googleapis.com \
   cloudtasks.googleapis.com \
   secretmanager.googleapis.com \
   storage.googleapis.com \
-  cloudscheduler.googleapis.com \
-  aiplatform.googleapis.com >/dev/null
+  cloudscheduler.googleapis.com
+)
+if [[ "${ENABLE_VERTEX_PLATFORM}" == "true" ]]; then
+  REQUIRED_SERVICES+=(aiplatform.googleapis.com)
+fi
+"${GCLOUD_BIN}" services enable "${REQUIRED_SERVICES[@]}" >/dev/null
 
 echo "==> Creating storage bucket if needed"
 if ! "${GCLOUD_BIN}" storage ls "${GCS_BUCKET}" >/dev/null 2>&1; then
@@ -69,9 +78,11 @@ echo "==> Binding IAM roles (least-privilege baseline)"
 "${GCLOUD_BIN}" projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
   --member="serviceAccount:${API_SA_EMAIL}" \
   --role="roles/cloudtasks.enqueuer" >/dev/null
-"${GCLOUD_BIN}" projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
-  --member="serviceAccount:${API_SA_EMAIL}" \
-  --role="roles/aiplatform.user" >/dev/null
+if [[ "${ENABLE_VERTEX_PLATFORM}" == "true" ]]; then
+  "${GCLOUD_BIN}" projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+    --member="serviceAccount:${API_SA_EMAIL}" \
+    --role="roles/aiplatform.user" >/dev/null
+fi
 "${GCLOUD_BIN}" iam service-accounts add-iam-policy-binding "${API_SA_EMAIL}" \
   --member="serviceAccount:${API_SA_EMAIL}" \
   --role="roles/iam.serviceAccountTokenCreator" >/dev/null
@@ -190,10 +201,10 @@ fi
   --min-instances="${MIN_INSTANCES}" \
   --max-instances="${MAX_INSTANCES}" \
   --concurrency="${CONTAINER_CONCURRENCY}" \
-  --memory=2Gi \
-  --cpu=1 \
+  --memory="${SERVICE_MEMORY}" \
+  --cpu="${SERVICE_CPU}" \
   --port=8080 \
-  --timeout=900 \
+  --timeout="${SERVICE_TIMEOUT}" \
   --startup-probe="httpGet.path=/health/ready,httpGet.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=24" \
   --liveness-probe="httpGet.path=/health/live,httpGet.port=8080,periodSeconds=30,timeoutSeconds=5,failureThreshold=3" \
   --set-env-vars="APP_ENV=prod,GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_REGION=${GCP_REGION},GCS_BUCKET=${GCS_BUCKET},CLOUD_TASKS_QUEUE=${QUEUE_NAME},CLOUD_TASKS_SERVICE_ACCOUNT=${TASKS_SA_EMAIL},API_SERVICE_ACCOUNT_EMAIL=${API_SA_EMAIL},FEATURE_VERTEX_AI=${FEATURE_VERTEX_AI},VERTEX_MODEL_DISPLAY_NAME=${VERTEX_MODEL_DISPLAY_NAME},TASKS_AUTH_REQUIRED=true,ALLOWED_ORIGINS=${ALLOWED_ORIGINS},FRONTEND_BASE_URL=${FRONTEND_BASE_URL},OPTIMIZE_MAX_STOPS=${OPTIMIZE_MAX_STOPS},OPTIMIZE_MAX_MATRIX_ELEMENTS=${OPTIMIZE_MAX_MATRIX_ELEMENTS}" \
@@ -202,11 +213,15 @@ fi
 SERVICE_URL="$("${GCLOUD_BIN}" run services describe "${SERVICE_NAME}" --region="${GCP_REGION}" --format='value(status.url)')"
 TASKS_AUDIENCE="${SERVICE_URL}/tasks/handle"
 DRIFT_URL="${SERVICE_URL}/api/v1/ml/drift-report"
+EFFECTIVE_FRONTEND_BASE_URL="${FRONTEND_BASE_URL}"
+if [[ "${EFFECTIVE_FRONTEND_BASE_URL}" == "${DEFAULT_FRONTEND_BASE_URL}" ]]; then
+  EFFECTIVE_FRONTEND_BASE_URL="${SERVICE_URL}"
+fi
 
 echo "==> Updating Cloud Run runtime URLs"
 "${GCLOUD_BIN}" run services update "${SERVICE_NAME}" \
   --region="${GCP_REGION}" \
-  --update-env-vars="APP_BASE_URL=${SERVICE_URL},CLOUD_TASKS_AUDIENCE=${TASKS_AUDIENCE},SCHEDULER_TOKEN=${SCHEDULER_TOKEN}" >/dev/null
+  --update-env-vars="APP_BASE_URL=${SERVICE_URL},CLOUD_TASKS_AUDIENCE=${TASKS_AUDIENCE},SCHEDULER_TOKEN=${SCHEDULER_TOKEN},FRONTEND_BASE_URL=${EFFECTIVE_FRONTEND_BASE_URL}" >/dev/null
 
 echo "==> Allowing Cloud Tasks principal to invoke /tasks/handle"
 "${GCLOUD_BIN}" run services add-iam-policy-binding "${SERVICE_NAME}" \
@@ -242,6 +257,7 @@ fi
 cat <<EOF
 Deployment complete.
 Cloud Run URL: ${SERVICE_URL}
+Frontend URL: ${EFFECTIVE_FRONTEND_BASE_URL}
 Cloud Tasks queue: ${QUEUE_NAME}
 Scheduler job: ${SCHEDULER_JOB_NAME}
 EOF

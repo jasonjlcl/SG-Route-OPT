@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import { resolveApiBase } from "./api";
 
 describe("resolveApiBase", () => {
-  it("uses the current browser hostname when no explicit API base is configured", () => {
+  it("uses the backend dev port for local frontend hosts", () => {
     expect(resolveApiBase(undefined, { origin: "http://127.0.0.1:5173" })).toBe("http://127.0.0.1:8000");
+  });
+
+  it("uses same-origin when the app is served from the backend domain", () => {
+    expect(resolveApiBase(undefined, { origin: "https://app.sgroute.com" })).toBe("https://app.sgroute.com");
   });
 
   it("preserves an explicit API base and strips a trailing slash", () => {

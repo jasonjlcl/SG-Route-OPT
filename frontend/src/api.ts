@@ -14,8 +14,12 @@ export function resolveApiBase(explicitBase?: string, location?: LocationLike): 
   const origin = (location?.origin ?? "").trim();
   if (origin) {
     const url = new URL(origin);
-    url.port = "8000";
-    return url.origin;
+    const isLocalHost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    if (isLocalHost && url.port && url.port !== "8000") {
+      url.port = "8000";
+      return url.origin;
+    }
+    return url.origin.replace(/\/+$/, "");
   }
 
   return "http://localhost:8000";

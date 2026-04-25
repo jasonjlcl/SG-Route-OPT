@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import traceback
 import uuid
+from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.api import datasets, evaluation, health, jobs, ml, plans, stops, tasks
 from app.services.scheduler import start_scheduler, stop_scheduler
@@ -16,6 +17,13 @@ from app.utils.settings import get_settings
 
 settings = get_settings()
 app = FastAPI(title="SG Route Optimization API", version="0.1.0")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FRONTEND_DIR_CANDIDATES = (
+    REPO_ROOT / "frontend_dist",
+    REPO_ROOT / "frontend" / "dist",
+)
+FRONTEND_RESERVED_PREFIXES = ("api/", "health/", "docs", "redoc", "openapi.json")
+FRONTEND_RESERVED_PATHS = {"api", "health", "docs", "redoc", "openapi.json"}
 
 app.add_middleware(
     CORSMiddleware,
@@ -89,3 +97,48 @@ def _safe_log_error(*, stage: str, message: str, dataset_id: int | None = None, 
             db.rollback()
     finally:
         db.close()
+
+
+def _frontend_dist_dir() -> Path | None:
+    for candidate in FRONTEND_DIR_CANDIDATES:
+        index_file = candidate / "index.html"
+        if index_file.is_file():
+            return candidate
+    return None
+
+
+def _frontend_response(full_path: str) -> FileResponse:
+    frontend_dir = _frontend_dist_dir()
+    if frontend_dir is None:
+        raise HTTPException(status_code=404, detail="Frontend bundle not found")
+
+    normalized = str(full_path or "").lstrip("/")
+    if normalized == "":
+        return FileResponse(frontend_dir / "index.html")
+    if normalized in FRONTEND_RESERVED_PATHS:
+        raise HTTPException(status_code=404, detail="Not Found")
+    if normalized.startswith(FRONTEND_RESERVED_PREFIXES):
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    candidate = (frontend_dir / normalized).resolve()
+    frontend_root = frontend_dir.resolve()
+    try:
+        candidate.relative_to(frontend_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Not Found") from exc
+
+    if candidate.is_file():
+        return FileResponse(candidate)
+    return FileResponse(frontend_dir / "index.html")
+
+
+if _frontend_dist_dir() is not None:
+
+    @app.get("/", include_in_schema=False)
+    def frontend_index() -> FileResponse:
+        return _frontend_response("")
+
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def frontend_catchall(full_path: str) -> FileResponse:
+        return _frontend_response(full_path)
