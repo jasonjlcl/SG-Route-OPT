@@ -209,16 +209,19 @@ Cheap deployment profile:
 - Set `MAX_INSTANCES=1` for low-traffic environments.
 - Set `SERVICE_MEMORY=1Gi` if your datasets stay within the existing optimize guardrails and you want to cut per-request memory cost.
 - Keep `FEATURE_VERTEX_AI=false` and `ENABLE_VERTEX_PLATFORM=false` unless you actively use Vertex jobs.
+- Keep `ENABLE_DRIFT_SCHEDULER=false` unless you actively want the weekly ML drift/retrain check.
 - Use a lower-cost Postgres provider via `DATABASE_URL` if Cloud SQL is the main bill driver; the app already supports any standard Postgres DSN.
 
 Controls:
 
 - `RUN_DB_MIGRATIONS=true|false` (default `true`)
 - `MIGRATION_JOB_NAME` (default `${SERVICE_NAME}-db-migrate`)
-- `SERVICE_MEMORY` (default `2Gi`)
+- `MAX_INSTANCES` (default `1`)
+- `SERVICE_MEMORY` (default `1Gi`)
 - `SERVICE_CPU` (default `1`)
 - `SERVICE_TIMEOUT` (default `900`)
 - `ENABLE_VERTEX_PLATFORM=true|false` (default follows `FEATURE_VERTEX_AI`; only enables Vertex API + IAM when needed)
+- `ENABLE_DRIFT_SCHEDULER=true|false` (default `false`; when false, an existing drift scheduler job is paused)
 - `RUN_PHASE7_MONITORING=true|false` (default `false`; apply Phase 7 alerts + dashboard)
 - `MONITORING_NOTIFICATION_CHANNELS` (optional comma-separated channel IDs for policy notifications)
 
@@ -245,11 +248,11 @@ bash infra/gcp/deploy_frontend.sh
 
 Guardrails baked in:
 
-- Cloud Run `min-instances=0`, `max-instances=3`, `concurrency=20`
+- Cloud Run `min-instances=0`, `max-instances=1`, `concurrency=20`
 - Frontend can be served from the same backend Cloud Run service, avoiding a second always-available web service by default
 - Cloud Tasks queue throttled (`max-concurrent-dispatches=1`)
 - Cloud mode does not require Redis worker processes for async job execution
-- Weekly Cloud Scheduler trigger for `/api/v1/ml/drift-report`
+- Weekly Cloud Scheduler drift trigger is opt-in and paused by default
 - Cloud Run startup probe on `/health/ready` and liveness probe on `/health/live`
 - Cloud Tasks OIDC callback path validated with production payload format (`/tasks/handle` 2xx)
 - Signed URL generation for export artifacts hardened for Cloud Run service-account credentials
@@ -275,20 +278,18 @@ Phase 7 signals covered:
 - signed URL failures
 - slow optimize runs (`OPTIMIZE_LATENCY_SLOW`)
 
-## Current Production Snapshot (February 22, 2026)
+## Current Production Snapshot (April 26, 2026)
 
 - Project: `gen-lang-client-0328386378`
 - Region: `asia-southeast1`
 - Cloud Run service: `sg-route-opt-api`
 - URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`
-- Frontend service: `sg-route-opt-web` (optional after the bundled single-service deploy path)
-- Webapp URL: `https://sg-route-opt-web-7wgewdyenq-as.a.run.app`
-- Latest API revision: `sg-route-opt-api-00044-k8w`
-- Latest frontend revision: `sg-route-opt-web-00009-mcl`
+- Frontend hosting: bundled into `sg-route-opt-api`; the separate `sg-route-opt-web` service is retired for the low-cost profile.
+- Latest API revision: `sg-route-opt-api-00063-jq9`
 - Queue: `routeapp-queue`
-- Scheduler job: `route-ml-drift-weekly`
-- Cloud SQL instance: `sg-route-opt-pg` (`asia-southeast1`)
-- Migration job: `sg-route-opt-api-db-migrate` (latest successful execution: `sg-route-opt-api-db-migrate-ckww2`)
+- Scheduler job: `route-ml-drift-weekly` paused by default
+- Cloud SQL instance: `sg-route-opt-pg` (`asia-southeast1`, `db-f1-micro`, one retained backup)
+- Migration job: `sg-route-opt-api-db-migrate`
 - Custom domains:
   - `https://app.sgroute.com`
   - `https://api.sgroute.com`
@@ -297,9 +298,9 @@ Phase 7 signals covered:
   - `api.sgroute.com` -> `True`
 - Health endpoint: `GET /api/v1/health` returns `200` with `env=prod` and feature flags.
 - API feature flags verified:
-  - `feature_google_traffic=true`
+  - `feature_google_traffic=false`
   - `feature_ml_uplift=true`
-  - `feature_eval_dashboard=true`
+  - `feature_eval_dashboard=false`
 - ML config endpoint is live:
   - `GET /api/v1/ml/config` includes `feature_vertex_ai`, `feature_vertex_batch_override`, and rollout fields.
 - Active model version:

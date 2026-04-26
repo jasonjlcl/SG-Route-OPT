@@ -4,7 +4,7 @@ param(
     [string]$FrontendServiceName = $(if ($env:FRONTEND_SERVICE_NAME) { $env:FRONTEND_SERVICE_NAME } else { "sg-route-opt-web" }),
     [string]$ApiServiceName = $(if ($env:API_SERVICE_NAME) { $env:API_SERVICE_NAME } else { "sg-route-opt-api" }),
     [string]$ApiUrl = $env:API_URL,
-    [string]$FrontendMemory = $(if ($env:FRONTEND_MEMORY) { $env:FRONTEND_MEMORY } else { "512Mi" }),
+    [string]$FrontendMemory = $(if ($env:FRONTEND_MEMORY) { $env:FRONTEND_MEMORY } else { "256Mi" }),
     [string]$FrontendCpu = $(if ($env:FRONTEND_CPU) { $env:FRONTEND_CPU } else { "1" }),
     [string]$FrontendMinInstances = $(if ($env:FRONTEND_MIN_INSTANCES) { $env:FRONTEND_MIN_INSTANCES } else { "0" }),
     [string]$FrontendMaxInstances = $(if ($env:FRONTEND_MAX_INSTANCES) { $env:FRONTEND_MAX_INSTANCES } else { "1" })

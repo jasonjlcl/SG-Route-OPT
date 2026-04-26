@@ -11,9 +11,9 @@ QUEUE_NAME="${CLOUD_TASKS_QUEUE:-route-jobs}"
 SCHEDULER_JOB_NAME="${SCHEDULER_JOB_NAME:-route-ml-drift-weekly}"
 IMAGE_URI="${IMAGE_URI:-gcr.io/${GCP_PROJECT_ID}/${SERVICE_NAME}:latest}"
 MIN_INSTANCES="${MIN_INSTANCES:-0}"
-MAX_INSTANCES="${MAX_INSTANCES:-3}"
+MAX_INSTANCES="${MAX_INSTANCES:-1}"
 CONTAINER_CONCURRENCY="${CONTAINER_CONCURRENCY:-20}"
-SERVICE_MEMORY="${SERVICE_MEMORY:-2Gi}"
+SERVICE_MEMORY="${SERVICE_MEMORY:-1Gi}"
 SERVICE_CPU="${SERVICE_CPU:-1}"
 SERVICE_TIMEOUT="${SERVICE_TIMEOUT:-900}"
 API_SA_NAME="${API_SA_NAME:-route-app-api-sa}"
@@ -30,10 +30,11 @@ RUN_DB_MIGRATIONS="${RUN_DB_MIGRATIONS:-true}"
 MIGRATION_JOB_NAME="${MIGRATION_JOB_NAME:-${SERVICE_NAME}-db-migrate}"
 OPTIMIZE_MAX_STOPS="${OPTIMIZE_MAX_STOPS:-80}"
 OPTIMIZE_MAX_MATRIX_ELEMENTS="${OPTIMIZE_MAX_MATRIX_ELEMENTS:-6500}"
+ENABLE_DRIFT_SCHEDULER="${ENABLE_DRIFT_SCHEDULER:-false}"
 RUN_PHASE7_MONITORING="${RUN_PHASE7_MONITORING:-false}"
 MONITORING_NOTIFICATION_CHANNELS="${MONITORING_NOTIFICATION_CHANNELS:-}"
 
-if [[ -z "${SCHEDULER_TOKEN//[[:space:]]/}" ]]; then
+if [[ "${ENABLE_DRIFT_SCHEDULER}" == "true" && -z "${SCHEDULER_TOKEN//[[:space:]]/}" ]]; then
   echo "ERROR: SCHEDULER_TOKEN must be set and non-empty."
   exit 1
 fi
@@ -231,18 +232,25 @@ echo "==> Allowing Cloud Tasks principal to invoke /tasks/handle"
 
 echo "==> Creating/updating weekly Cloud Scheduler drift check"
 
-if "${GCLOUD_BIN}" scheduler jobs describe "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" >/dev/null 2>&1; then
-  "${GCLOUD_BIN}" scheduler jobs delete "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" --quiet >/dev/null
-fi
+if [[ "${ENABLE_DRIFT_SCHEDULER}" == "true" ]]; then
+  if "${GCLOUD_BIN}" scheduler jobs describe "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" >/dev/null 2>&1; then
+    "${GCLOUD_BIN}" scheduler jobs delete "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" --quiet >/dev/null
+  fi
 
-"${GCLOUD_BIN}" scheduler jobs create http "${SCHEDULER_JOB_NAME}" \
-  --location="${GCP_REGION}" \
-  --schedule="0 3 * * 1" \
-  --http-method=POST \
-  --uri="${DRIFT_URL}?trigger_retrain=true" \
-  --oidc-service-account-email="${TASKS_SA_EMAIL}" \
-  --oidc-token-audience="${DRIFT_URL}" \
-  --headers="X-Scheduler-Token=${SCHEDULER_TOKEN}" >/dev/null
+  "${GCLOUD_BIN}" scheduler jobs create http "${SCHEDULER_JOB_NAME}" \
+    --location="${GCP_REGION}" \
+    --schedule="0 3 * * 1" \
+    --http-method=POST \
+    --uri="${DRIFT_URL}?trigger_retrain=true" \
+    --oidc-service-account-email="${TASKS_SA_EMAIL}" \
+    --oidc-token-audience="${DRIFT_URL}" \
+    --headers="X-Scheduler-Token=${SCHEDULER_TOKEN}" >/dev/null
+else
+  if "${GCLOUD_BIN}" scheduler jobs describe "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" >/dev/null 2>&1; then
+    "${GCLOUD_BIN}" scheduler jobs pause "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" >/dev/null
+  fi
+  echo "==> Skipped weekly Cloud Scheduler drift check (ENABLE_DRIFT_SCHEDULER=${ENABLE_DRIFT_SCHEDULER})"
+fi
 
 if [[ "${RUN_PHASE7_MONITORING}" == "true" ]]; then
   echo "==> Applying Phase 7 monitoring policies and dashboard"
