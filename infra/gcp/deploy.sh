@@ -247,9 +247,9 @@ if [[ "${ENABLE_DRIFT_SCHEDULER}" == "true" ]]; then
     --headers="X-Scheduler-Token=${SCHEDULER_TOKEN}" >/dev/null
 else
   if "${GCLOUD_BIN}" scheduler jobs describe "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" >/dev/null 2>&1; then
-    "${GCLOUD_BIN}" scheduler jobs pause "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" >/dev/null
+    "${GCLOUD_BIN}" scheduler jobs delete "${SCHEDULER_JOB_NAME}" --location="${GCP_REGION}" --quiet >/dev/null
   fi
-  echo "==> Skipped weekly Cloud Scheduler drift check (ENABLE_DRIFT_SCHEDULER=${ENABLE_DRIFT_SCHEDULER})"
+  echo "==> Disabled weekly Cloud Scheduler drift check (ENABLE_DRIFT_SCHEDULER=${ENABLE_DRIFT_SCHEDULER})"
 fi
 
 if [[ "${RUN_PHASE7_MONITORING}" == "true" ]]; then

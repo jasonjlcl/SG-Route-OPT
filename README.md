@@ -221,7 +221,7 @@ Controls:
 - `SERVICE_CPU` (default `1`)
 - `SERVICE_TIMEOUT` (default `900`)
 - `ENABLE_VERTEX_PLATFORM=true|false` (default follows `FEATURE_VERTEX_AI`; only enables Vertex API + IAM when needed)
-- `ENABLE_DRIFT_SCHEDULER=true|false` (default `false`; when false, an existing drift scheduler job is paused)
+- `ENABLE_DRIFT_SCHEDULER=true|false` (default `false`; when false, an existing drift scheduler job is deleted)
 - `RUN_PHASE7_MONITORING=true|false` (default `false`; apply Phase 7 alerts + dashboard)
 - `MONITORING_NOTIFICATION_CHANNELS` (optional comma-separated channel IDs for policy notifications)
 
@@ -252,7 +252,7 @@ Guardrails baked in:
 - Frontend can be served from the same backend Cloud Run service, avoiding a second always-available web service by default
 - Cloud Tasks queue throttled (`max-concurrent-dispatches=1`)
 - Cloud mode does not require Redis worker processes for async job execution
-- Weekly Cloud Scheduler drift trigger is opt-in and paused by default
+- Weekly Cloud Scheduler drift trigger is opt-in and deleted by default
 - Cloud Run startup probe on `/health/ready` and liveness probe on `/health/live`
 - Cloud Tasks OIDC callback path validated with production payload format (`/tasks/handle` 2xx)
 - Signed URL generation for export artifacts hardened for Cloud Run service-account credentials
@@ -287,8 +287,8 @@ Phase 7 signals covered:
 - Frontend hosting: bundled into `sg-route-opt-api`; the separate `sg-route-opt-web` service is retired for the low-cost profile.
 - Latest API revision: `sg-route-opt-api-00063-jq9`
 - Queue: `routeapp-queue`
-- Scheduler job: `route-ml-drift-weekly` paused by default
-- Cloud SQL instance: `sg-route-opt-pg` (`asia-southeast1`, `db-f1-micro`, one retained backup)
+- Scheduler job: `route-ml-drift-weekly` disabled by default
+- Cloud SQL instance: `sg-route-opt-pg` (`asia-southeast1`, `db-f1-micro`, one retained backup, storage auto-increase disabled)
 - Migration job: `sg-route-opt-api-db-migrate`
 - Custom domains:
   - `https://app.sgroute.com`
