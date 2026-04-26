@@ -311,9 +311,7 @@ Phase 7 signals covered:
 - OneMap secrets are now provisioned in Secret Manager:
   - `ONEMAP_EMAIL` (version `1`)
   - `ONEMAP_PASSWORD` (version `1`)
-- Google traffic verification:
-  - `use_live_traffic=true` optimize requests return `eta_source=google_traffic`
-  - `traffic_timestamp` is non-null for live-traffic plans
+- Google traffic is disabled in the low-cost production profile; keep it off unless you need paid live-traffic routing.
 - Fallback diagnostics include structured `details=` payload in logs for troubleshooting.
 
 ## Production Ops Runbook (DB + ML)
@@ -321,7 +319,7 @@ Phase 7 signals covered:
 Cloud SQL hardening baseline (production):
 
 - Instance: `sg-route-opt-pg` (`gen-lang-client-0328386378:asia-southeast1:sg-route-opt-pg`)
-- Backups: enabled (`startTime=22:00`, retained backups `7`)
+- Backups: enabled (`startTime=22:00`, retained backups `1`)
 - Maintenance window: Sunday `03:00` (UTC)
 - Deletion protection: enabled
 - Connector enforcement: `REQUIRED`
