@@ -95,7 +95,7 @@ Core env vars:
 ML and rollout options:
 
 - `FEATURE_VERTEX_AI` (`true`/`false`, default `false`)
-- `FEATURE_VERTEX_BATCH_OVERRIDE` (`true`/`false`, default `true`; controls async matrix override via Vertex batch prediction)
+- `FEATURE_VERTEX_BATCH_OVERRIDE` (`true`/`false`, default `false`; controls async matrix override via Vertex batch prediction)
 - `VERTEX_MODEL_DISPLAY_NAME` (default `route-time-regressor`)
 - `VERTEX_BATCH_MACHINE_TYPE` (default `n1-standard-4` for custom-model batch prediction)
 - `VERTEX_BATCH_STARTING_REPLICA_COUNT` (default `1`)
@@ -108,12 +108,12 @@ ML and rollout options:
 
 Queue/scheduler/security options:
 
-- `CLOUD_TASKS_QUEUE` (default `route-jobs`)
+- `CLOUD_TASKS_QUEUE` (default `routeapp-queue`)
 - `CLOUD_TASKS_SERVICE_ACCOUNT` (used for OIDC on `/tasks/handle`)
 - `CLOUD_TASKS_AUDIENCE` (optional, defaults to `${APP_BASE_URL}/tasks/handle`)
 - `API_SERVICE_ACCOUNT_EMAIL` (service account email used for IAM signed URL fallback in Cloud Run)
 - `TASKS_AUTH_REQUIRED` (default `true`)
-- `SCHEDULER_TOKEN` (required in `prod`/`production`; shared secret for `/api/v1/ml/drift-report`)
+- `SCHEDULER_TOKEN` (optional unless the weekly drift scheduler is enabled; shared secret for `/api/v1/ml/drift-report`)
 
 General runtime options:
 
@@ -125,8 +125,8 @@ General runtime options:
 - `JOBS_FORCE_INLINE` (set `true` for local/test to execute queued steps inline)
 - `SIGNED_URL_TTL_SECONDS` (default `3600`)
 - `OPTIMIZE_LATENCY_WARN_SECONDS` (default `1200`, emits slow-optimize warning log marker for alerting)
-- `OPTIMIZE_MAX_STOPS` (default `80`, tuned for single-instance cloud profile; rejects oversized optimize/ab-test requests early)
-- `OPTIMIZE_MAX_MATRIX_ELEMENTS` (default `6500`, tuned O(N^2) cap; rejects requests with infeasible matrix size early)
+- `OPTIMIZE_MAX_STOPS` (default `50`, tuned for the 512Mi single-instance cloud profile; rejects oversized optimize/ab-test requests early)
+- `OPTIMIZE_MAX_MATRIX_ELEMENTS` (default `2500`, tuned O(N^2) cap; rejects requests with infeasible matrix size early)
 
 If OneMap credentials are empty, backend automatically uses deterministic mock geocoding/routing for local development.
 
@@ -192,7 +192,7 @@ export ONEMAP_PASSWORD=your_password
 export DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST:5432/DBNAME'
 export FEATURE_VERTEX_AI=false
 export ENABLE_VERTEX_PLATFORM=false
-export SERVICE_MEMORY=1Gi
+export SERVICE_MEMORY=512Mi
 export MAX_INSTANCES=1
 
 bash infra/gcp/deploy.sh
@@ -207,9 +207,10 @@ Cheap deployment profile:
 
 - Run only `infra/gcp/deploy.sh` and skip the dedicated frontend deploy scripts unless you need a second web service or separate domain mapping.
 - Set `MAX_INSTANCES=1` for low-traffic environments.
-- Set `SERVICE_MEMORY=1Gi` if your datasets stay within the existing optimize guardrails and you want to cut per-request memory cost.
+- Use the default `SERVICE_MEMORY=512Mi`, `CONTAINER_CONCURRENCY=10`, and smaller optimize guardrails for the lowest Cloud Run request cost.
 - Keep `FEATURE_VERTEX_AI=false` and `ENABLE_VERTEX_PLATFORM=false` unless you actively use Vertex jobs.
 - Keep `ENABLE_DRIFT_SCHEDULER=false` unless you actively want the weekly ML drift/retrain check.
+- Keep `FEATURE_ML_UPLIFT=false` in the lowest-cost profile; it avoids optional local uplift inference work.
 - Use a lower-cost Postgres provider via `DATABASE_URL` if Cloud SQL is the main bill driver; the app already supports any standard Postgres DSN.
 
 Controls:
@@ -217,7 +218,8 @@ Controls:
 - `RUN_DB_MIGRATIONS=true|false` (default `true`)
 - `MIGRATION_JOB_NAME` (default `${SERVICE_NAME}-db-migrate`)
 - `MAX_INSTANCES` (default `1`)
-- `SERVICE_MEMORY` (default `1Gi`)
+- `CONTAINER_CONCURRENCY` (default `10`)
+- `SERVICE_MEMORY` (default `512Mi`)
 - `SERVICE_CPU` (default `1`)
 - `SERVICE_TIMEOUT` (default `900`)
 - `ENABLE_VERTEX_PLATFORM=true|false` (default follows `FEATURE_VERTEX_AI`; only enables Vertex API + IAM when needed)
@@ -248,7 +250,7 @@ bash infra/gcp/deploy_frontend.sh
 
 Guardrails baked in:
 
-- Cloud Run `min-instances=0`, `max-instances=1`, `concurrency=20`
+- Cloud Run `min-instances=0`, `max-instances=1`, `concurrency=10`, `memory=512Mi`, startup CPU boost disabled
 - Frontend can be served from the same backend Cloud Run service, avoiding a second always-available web service by default
 - Cloud Tasks queue throttled (`max-concurrent-dispatches=1`)
 - Cloud mode does not require Redis worker processes for async job execution
@@ -285,7 +287,7 @@ Phase 7 signals covered:
 - Cloud Run service: `sg-route-opt-api`
 - URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`
 - Frontend hosting: bundled into `sg-route-opt-api`; the separate `sg-route-opt-web` service is retired for the low-cost profile.
-- Latest API revision: `sg-route-opt-api-00063-jq9`
+- Latest API revision: `sg-route-opt-api-00066-j6h`
 - Queue: `routeapp-queue`
 - Scheduler job: `route-ml-drift-weekly` disabled by default
 - Cloud SQL instance: `sg-route-opt-pg` (`asia-southeast1`, `db-f1-micro`, one retained backup, storage auto-increase disabled)
@@ -299,12 +301,13 @@ Phase 7 signals covered:
 - Health endpoint: `GET /api/v1/health` returns `200` with `env=prod` and feature flags.
 - API feature flags verified:
   - `feature_google_traffic=false`
-  - `feature_ml_uplift=true`
+  - `feature_ml_uplift=false`
   - `feature_eval_dashboard=false`
+- Vertex AI: disabled; model registry and endpoints removed from the active deployment.
 - ML config endpoint is live:
   - `GET /api/v1/ml/config` includes `feature_vertex_ai`, `feature_vertex_batch_override`, and rollout fields.
 - Active model version:
-  - `v20260222075015196509`
+  - `v20260222104531868779`
 - Deploy script probe targets (when deployed via `infra/gcp/deploy.sh`):
   - startup probe: `/health/ready`
   - liveness probe: `/health/live`

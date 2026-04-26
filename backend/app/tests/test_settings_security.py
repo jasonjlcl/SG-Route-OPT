@@ -25,11 +25,11 @@ def _load_with_env(monkeypatch, values: dict[str, str]) -> Settings:
     return Settings()
 
 
-def test_prod_settings_require_non_empty_scheduler_token(monkeypatch):
+def test_prod_settings_allows_missing_scheduler_token_when_scheduler_disabled(monkeypatch):
     data = _base_prod_settings()
-    data["SCHEDULER_TOKEN"] = "   "
-    with pytest.raises(ValidationError):
-        _load_with_env(monkeypatch, data)
+    data.pop("SCHEDULER_TOKEN")
+    settings = _load_with_env(monkeypatch, data)
+    assert settings.scheduler_token is None
 
 
 def test_prod_settings_reject_sqlite_database(monkeypatch):

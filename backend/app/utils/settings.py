@@ -33,8 +33,8 @@ class Settings(BaseSettings):
     app_base_url: str = Field(default="http://localhost:8000", alias="APP_BASE_URL")
     frontend_base_url: str = Field(default="http://localhost:5173", alias="FRONTEND_BASE_URL")
     jobs_force_inline: bool = Field(default=False, alias="JOBS_FORCE_INLINE")
-    optimize_max_stops: int = Field(default=80, ge=1, alias="OPTIMIZE_MAX_STOPS")
-    optimize_max_matrix_elements: int = Field(default=6500, ge=1, alias="OPTIMIZE_MAX_MATRIX_ELEMENTS")
+    optimize_max_stops: int = Field(default=50, ge=1, alias="OPTIMIZE_MAX_STOPS")
+    optimize_max_matrix_elements: int = Field(default=2500, ge=1, alias="OPTIMIZE_MAX_MATRIX_ELEMENTS")
 
     ml_drift_threshold: float = Field(default=0.2, alias="ML_DRIFT_THRESHOLD")
     ml_retrain_min_rows: int = Field(default=200, alias="ML_RETRAIN_MIN_ROWS")
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     maps_static_api_key: str | None = Field(default=None, alias="MAPS_STATIC_API_KEY")
 
     feature_vertex_ai: bool = Field(default=False, alias="FEATURE_VERTEX_AI")
-    feature_vertex_batch_override: bool = Field(default=True, alias="FEATURE_VERTEX_BATCH_OVERRIDE")
+    feature_vertex_batch_override: bool = Field(default=False, alias="FEATURE_VERTEX_BATCH_OVERRIDE")
     vertex_model_display_name: str = Field(default="route-time-regressor", alias="VERTEX_MODEL_DISPLAY_NAME")
     vertex_batch_machine_type: str = Field(default="n1-standard-4", alias="VERTEX_BATCH_MACHINE_TYPE")
     vertex_batch_starting_replica_count: int = Field(default=1, ge=1, alias="VERTEX_BATCH_STARTING_REPLICA_COUNT")
@@ -187,8 +187,6 @@ class Settings(BaseSettings):
             missing.append("CLOUD_TASKS_QUEUE")
         if not self.cloud_tasks_service_account:
             missing.append("CLOUD_TASKS_SERVICE_ACCOUNT")
-        if not self.scheduler_token:
-            missing.append("SCHEDULER_TOKEN")
         if not self.onemap_email:
             missing.append("ONEMAP_EMAIL")
         if not self.onemap_password:
