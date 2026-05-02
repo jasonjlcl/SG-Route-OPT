@@ -18,3 +18,4 @@ backend/app/ml/artifacts/
 /app/
 /src/
 smoke_report.json
+cloud_backups/

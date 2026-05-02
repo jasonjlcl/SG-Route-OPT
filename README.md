@@ -171,7 +171,19 @@ npm run dev -- --host 0.0.0.0 --port 5173
 
 Open: `http://localhost:5173`
 
-## GCP Deployment (Cloud Run + Cloud Tasks)
+## Cloud Status
+
+SG Route cloud hosting was decommissioned on May 2, 2026 to stop recurring cloud costs.
+
+- The Cloud Run API/web service, migration job, Cloud Tasks queue, Cloud SQL instance, GCS buckets, BigQuery dataset, Container Registry image, domain mappings, and SG Route Secret Manager secrets were deleted.
+- The custom domains `app.sgroute.com` and `api.sgroute.com` are no longer mapped to Cloud Run.
+- A local decommission backup was written to `C:\sgroute_cloud_backup_20260502-152221`.
+- The backup includes the `route_app` bucket contents, a Cloud SQL `routeapp` SQL export, and the BigQuery `eta_sg.onemap_eta_training` CSV export.
+- Use local SQLite/Postgres for development unless you intentionally decide to re-enable paid cloud hosting.
+
+## Archived GCP Deployment (Paid Cloud)
+
+Do not run these scripts unless you intentionally want to recreate paid GCP resources.
 
 Scripts:
 
@@ -280,44 +292,23 @@ Phase 7 signals covered:
 - signed URL failures
 - slow optimize runs (`OPTIMIZE_LATENCY_SLOW`)
 
-## Current Production Snapshot (April 26, 2026)
+## Cloud Decommission Snapshot (May 2, 2026)
 
 - Project: `gen-lang-client-0328386378`
 - Region: `asia-southeast1`
-- Cloud Run service: `sg-route-opt-api`
-- URL: `https://sg-route-opt-api-7wgewdyenq-as.a.run.app`
-- Frontend hosting: bundled into `sg-route-opt-api`; the separate `sg-route-opt-web` service is retired for the low-cost profile.
-- Latest API revision: `sg-route-opt-api-00066-j6h`
-- Queue: `routeapp-queue`
-- Scheduler job: `route-ml-drift-weekly` disabled by default
-- Cloud SQL instance: `sg-route-opt-pg` (`asia-southeast1`, `db-f1-micro`, one retained backup, storage auto-increase disabled)
-- Migration job: `sg-route-opt-api-db-migrate`
-- Custom domains:
-  - `https://app.sgroute.com`
-  - `https://api.sgroute.com`
-- Domain mapping status:
-  - `app.sgroute.com` -> `True`
-  - `api.sgroute.com` -> `True`
-- Health endpoint: `GET /api/v1/health` returns `200` with `env=prod` and feature flags.
-- API feature flags verified:
-  - `feature_google_traffic=false`
-  - `feature_ml_uplift=false`
-  - `feature_eval_dashboard=false`
-- Vertex AI: disabled; model registry and endpoints removed from the active deployment.
-- ML config endpoint is live:
-  - `GET /api/v1/ml/config` includes `feature_vertex_ai`, `feature_vertex_batch_override`, and rollout fields.
-- Active model version:
-  - `v20260222104531868779`
-- Deploy script probe targets (when deployed via `infra/gcp/deploy.sh`):
-  - startup probe: `/health/ready`
-  - liveness probe: `/health/live`
-- OneMap secrets are now provisioned in Secret Manager:
-  - `ONEMAP_EMAIL` (version `1`)
-  - `ONEMAP_PASSWORD` (version `1`)
-- Google traffic is disabled in the low-cost production profile; keep it off unless you need paid live-traffic routing.
-- Fallback diagnostics include structured `details=` payload in logs for troubleshooting.
+- Cloud Run SG Route services/jobs: deleted
+- Cloud SQL `sg-route-opt-pg`: exported, then deleted
+- Cloud Tasks `routeapp-queue`: deleted
+- GCS `route_app` and Cloud Build buckets: backed up or emptied, then deleted
+- BigQuery dataset `eta_sg`: exported, then deleted
+- Container Registry SG Route images: deleted
+- Domain mappings for `app.sgroute.com` and `api.sgroute.com`: deleted
+- SG Route Secret Manager secrets: deleted
+- Local backup: `C:\sgroute_cloud_backup_20260502-152221`
 
-## Production Ops Runbook (DB + ML)
+## Archived Production Ops Runbook (Cloud Disabled)
+
+The commands below are historical references for the former GCP deployment. They will fail unless the deleted cloud resources are recreated.
 
 Cloud SQL hardening baseline (production):
 
